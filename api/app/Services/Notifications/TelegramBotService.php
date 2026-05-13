@@ -220,6 +220,8 @@ class TelegramBotService
      */
     private function createTransaction(int $chatId, User $user, array $data): void
     {
+        app()->instance('client_id', $user->id);
+
         Log::channel('telegram')->info('createTransaction: '.json_encode($data, JSON_UNESCAPED_UNICODE));
 
         $categoryId = null;
@@ -234,7 +236,6 @@ class TelegramBotService
             }
         }
 
-        app()->instance('client_id', $user->id);
         $accountId = Account::defaultIdForClient($user->id);
 
         try {
