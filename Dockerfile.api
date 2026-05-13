@@ -73,4 +73,3 @@ RUN mkdir -p storage/framework/{cache/data,sessions,views} storage/logs bootstra
 EXPOSE 8080
 
 ENTRYPOINT ["railway-entrypoint.sh"]
-CMD ["supervisord", "-n", "-c", "/etc/supervisord.conf"]
