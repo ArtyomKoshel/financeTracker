@@ -14,8 +14,14 @@ cd /var/www/html
 export PORT="${PORT:-8080}"
 export REVERB_HOST="${REVERB_HOST:-worker.railway.internal}"
 export REVERB_PORT="${REVERB_PORT:-8080}"
+_NS=$(grep -m1 '^nameserver' /etc/resolv.conf | awk '{print $2}' 2>/dev/null || echo "8.8.8.8")
+# nginx needs IPv6 addresses wrapped in brackets
+if echo "$_NS" | grep -q ':'; then
+    NGINX_RESOLVER="[$_NS]"
+else
+    NGINX_RESOLVER="$_NS"
+fi
 export NGINX_RESOLVER
-NGINX_RESOLVER=$(grep -m1 '^nameserver' /etc/resolv.conf | awk '{print $2}' 2>/dev/null || echo "8.8.8.8")
 
 envsubst '${PORT}${REVERB_HOST}${REVERB_PORT}${NGINX_RESOLVER}' \
     < /etc/nginx/templates/default.conf.template \
