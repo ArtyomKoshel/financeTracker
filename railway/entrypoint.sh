@@ -22,10 +22,19 @@ else
     NGINX_RESOLVER="$_NS"
 fi
 
+# Railway PostgreSQL plugin exposes PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE.
+# Map them to Laravel's DB_* when empty.
+[ -z "$DB_HOST" ]     && [ -n "$PGHOST" ]     && export DB_HOST="$PGHOST"
+[ -z "$DB_PORT" ]     && [ -n "$PGPORT" ]     && export DB_PORT="$PGPORT"
+[ -z "$DB_DATABASE" ] && [ -n "$PGDATABASE" ] && export DB_DATABASE="$PGDATABASE"
+[ -z "$DB_USERNAME" ] && [ -n "$PGUSER" ]     && export DB_USERNAME="$PGUSER"
+[ -z "$DB_PASSWORD" ] && [ -n "$PGPASSWORD" ] && export DB_PASSWORD="$PGPASSWORD"
+[ -z "$DB_CONNECTION" ]                        && export DB_CONNECTION="pgsql"
+
 # Railway Redis service exposes REDISHOST/REDISPORT/REDISPASSWORD (no underscore).
 # Map them to Laravel's expected REDIS_HOST/REDIS_PORT/REDIS_PASSWORD when empty.
-[ -z "$REDIS_HOST" ] && [ -n "$REDISHOST" ]     && export REDIS_HOST="$REDISHOST"
-[ -z "$REDIS_PORT" ] && [ -n "$REDISPORT" ]     && export REDIS_PORT="$REDISPORT"
+[ -z "$REDIS_HOST" ]     && [ -n "$REDISHOST" ]     && export REDIS_HOST="$REDISHOST"
+[ -z "$REDIS_PORT" ]     && [ -n "$REDISPORT" ]     && export REDIS_PORT="$REDISPORT"
 [ -z "$REDIS_PASSWORD" ] && [ -n "$REDISPASSWORD" ] && export REDIS_PASSWORD="$REDISPASSWORD"
 
 export NGINX_RESOLVER
