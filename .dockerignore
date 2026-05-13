@@ -1,0 +1,36 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Docker
+docker/
+docker-dev.ps1
+Dockerfile
+Dockerfile.*
+
+# IDE / tooling
+.idea/
+.claude/
+.cursorrules
+*.md
+docs/
+_archive_go/
+
+# Dev artifacts
+web/node_modules/
+api/vendor/
+api/node_modules/
+data/
+
+# Secrets — never include .env in build context
+api/.env
+api/.env.backup
+
+# PHP test / cache artifacts
+api/.phpunit.result.cache
+api/bootstrap/cache/*.php
+api/storage/logs/*.log
+
+# Binary
+finance-tracker.exe

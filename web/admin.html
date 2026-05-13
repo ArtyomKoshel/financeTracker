@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Админ-панель - Finance Tracker</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app admin-app">
+        <header class="header admin-header">
+            <h1 class="logo">Finance Tracker — Админ</h1>
+            <div class="admin-header-actions">
+                <a href="/" class="btn btn-text admin-header-link">← В приложение</a>
+                <button type="button" class="btn btn-secondary" id="logoutBtn">
+                    <span>🚪</span>
+                    <span>Выход</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="content admin-content">
+            <!-- Admin section nav -->
+            <nav class="admin-section-nav" id="adminSectionNav" aria-label="Разделы">
+                <a href="#adminDashboard" class="admin-section-link">📊 Сводка</a>
+                <a href="#adminSectionCharts" class="admin-section-link">📈 Графики</a>
+                <a href="#adminSectionClients" class="admin-section-link">👥 Клиенты</a>
+                <a href="#adminSectionPush" class="admin-section-link">🔔 Push</a>
+                <a href="#adminSectionRules" class="admin-section-link">📐 Правила</a>
+                <a href="#adminSectionReceipts" class="admin-section-link">🧾 Чеки</a>
+                <a href="#adminSectionActivity" class="admin-section-link">🔐 Логи</a>
+                <a href="#adminSectionApiLogs" class="admin-section-link">📋 API</a>
+            </nav>
+
+            <!-- Admin Dashboard -->
+            <div class="admin-dashboard" id="adminDashboard">
+                <div class="admin-stats-grid">
+                    <div class="admin-stat-card">
+                        <span class="admin-stat-value" id="statTotalUsers">—</span>
+                        <span class="admin-stat-label">Всего пользователей</span>
+                    </div>
+                    <div class="admin-stat-card">
+                        <span class="admin-stat-value" id="statActiveUsers">—</span>
+                        <span class="admin-stat-label">Активных</span>
+                    </div>
+                    <div class="admin-stat-card">
+                        <span class="admin-stat-value" id="statTransactions">—</span>
+                        <span class="admin-stat-label">Транзакций</span>
+                    </div>
+                    <div class="admin-stat-card">
+                        <span class="admin-stat-value" id="statActive7d">—</span>
+                        <span class="admin-stat-label">Активны за 7 дней</span>
+                    </div>
+                    <div class="admin-stat-card">
+                        <span class="admin-stat-value" id="statNew30d">—</span>
+                        <span class="admin-stat-label">Новых за 30 дней</span>
+                    </div>
+                    <div class="admin-stat-card">
+                        <span class="admin-stat-value" id="statTotalBalance">—</span>
+                        <span class="admin-stat-label">Суммарный баланс</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" id="adminSectionCharts">
+                <div class="card-header">
+                    <h3>📈 Графики</h3>
+                    <select id="chartsMonths" class="admin-filter-select">
+                        <option value="6">6 месяцев</option>
+                        <option value="12">12 месяцев</option>
+                    </select>
+                </div>
+                <div class="admin-charts" id="adminCharts">
+                    <p class="empty-state">Загрузка...</p>
+                </div>
+            </div>
+
+            <div class="card" id="adminSectionPush">
+                <div class="card-header">
+                    <h3>🔔 Push-уведомления</h3>
+                </div>
+                <div class="admin-push-form">
+                    <div class="form-group">
+                        <label for="pushTitle">Заголовок</label>
+                        <input type="text" id="pushTitle" placeholder="Заголовок уведомления" maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="pushBody">Текст</label>
+                        <textarea id="pushBody" rows="3" placeholder="Текст сообщения"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="pushTarget">Кому</label>
+                        <select id="pushTarget">
+                            <option value="all">Всем пользователям</option>
+                            <option value="user">Конкретному пользователю</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="pushUserGroup" style="display: none;">
+                        <label for="pushUserId">Пользователь</label>
+                        <select id="pushUserId">
+                            <option value="">— Выберите —</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="pushSchedule">
+                            Запланировать отправку
+                        </label>
+                    </div>
+                    <div class="form-group" id="pushScheduleGroup" style="display: none;">
+                        <label for="pushScheduledAt">Дата и время</label>
+                        <input type="datetime-local" id="pushScheduledAt">
+                    </div>
+                    <div class="admin-push-actions">
+                        <button type="button" class="btn btn-primary" id="sendPushNowBtn">Отправить сейчас</button>
+                        <button type="button" class="btn btn-secondary" id="schedulePushBtn" style="display: none;">Запланировать</button>
+                    </div>
+                </div>
+                <div class="admin-push-campaigns mt-3">
+                    <h4>Кампании</h4>
+                    <div class="admin-table-wrap">
+                        <table class="admin-table" id="pushCampaignsTable">
+                            <thead>
+                                <tr>
+                                    <th>Заголовок</th>
+                                    <th>Кому</th>
+                                    <th>Запланировано</th>
+                                    <th>Отправлено</th>
+                                    <th>Получено</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pushCampaignsBody">
+                                <tr><td colspan="5" class="empty-state">Загрузка...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="button" class="btn btn-text btn-sm mt-2" id="refreshPushCampaignsBtn">Обновить</button>
+                </div>
+            </div>
+
+            <div class="card" id="adminSectionRules">
+                <div class="card-header">
+                    <h3>📐 Правила категоризации</h3>
+                    <div class="card-header-actions">
+                        <button class="btn btn-primary btn-sm" id="adminRulesRefreshBtn">Обновить</button>
+                        <button class="btn btn-secondary btn-sm" id="adminRulesAddBtn">+ Добавить правило</button>
+                    </div>
+                </div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table" id="adminRulesTable">
+                        <thead>
+                            <tr>
+                                <th>Паттерн</th>
+                                <th>Категория</th>
+                                <th>Применено</th>
+                                <th>Принято</th>
+                                <th>% точн.</th>
+                                <th>Статус</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminRulesBody">
+                            <tr><td colspan="7" class="empty-state">Загрузка...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <h4 class="mt-3">⚡ Кандидаты на правила</h4>
+                <div class="admin-table-wrap">
+                    <table class="admin-table" id="adminCandidatesTable">
+                        <thead>
+                            <tr>
+                                <th>Мерчант</th>
+                                <th>Категория</th>
+                                <th>Маппингов</th>
+                                <th>% согласованности</th>
+                                <th>Действие</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminCandidatesBody">
+                            <tr><td colspan="5" class="empty-state">Загрузка...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card" id="adminSectionReceipts">
+                <div class="card-header">
+                    <h3>📥 Импорт чеков</h3>
+                    <div class="card-header-actions">
+                        <button class="btn btn-primary btn-sm" id="adminReceiptsRefreshBtn">Обновить</button>
+                    </div>
+                </div>
+                <div id="adminReceiptsSummary" class="admin-stats-row">Загрузка...</div>
+                <h4 class="mt-3">🤖 AI-метрики</h4>
+                <div id="adminAiMetricsSummary" class="admin-stats-row">Загрузка...</div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table" id="adminAiMetricsTable">
+                        <thead>
+                            <tr>
+                                <th>Провайдер</th>
+                                <th>Всего</th>
+                                <th>Успешно</th>
+                                <th>Ошибок</th>
+                                <th>Ср. мс</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminAiMetricsBody">
+                            <tr><td colspan="5" class="empty-state">Загрузка...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <h4 class="mt-3">🗺️ Топ маппингов мерчантов</h4>
+                <div class="admin-table-wrap">
+                    <table class="admin-table" id="adminTopMappingsTable">
+                        <thead>
+                            <tr>
+                                <th>Мерчант</th>
+                                <th>Категория</th>
+                                <th>Пользователей</th>
+                                <th>Вариантов</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminTopMappingsBody">
+                            <tr><td colspan="4" class="empty-state">Загрузка...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card" id="adminSectionClients">
+                <div class="card-header">
+                    <h3>👥 Клиенты</h3>
+                    <div class="card-header-actions">
+                        <button class="btn btn-secondary btn-sm" id="exportClientsCsvBtn">Экспорт CSV</button>
+                        <button class="btn btn-primary btn-sm" id="addClientBtn">+ Добавить</button>
+                    </div>
+                </div>
+                <div class="admin-filters">
+                    <input type="search" id="clientsSearchInput" class="admin-search" placeholder="Поиск по email, имени..." autocomplete="off">
+                    <select id="clientsStatusFilter" class="admin-filter-select">
+                        <option value="">Все статусы</option>
+                        <option value="active">Активен</option>
+                        <option value="inactive">Неактивен</option>
+                    </select>
+                </div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table" id="clientsTable">
+                        <thead>
+                            <tr>
+                                <th class="sortable" data-sort="email">Email</th>
+                                <th class="sortable" data-sort="name">Имя</th>
+                                <th class="sortable" data-sort="created_at">Регистрация</th>
+                                <th class="sortable" data-sort="last_login_at">Последний вход</th>
+                                <th class="sortable" data-sort="transaction_count">Транзакций</th>
+                                <th class="sortable" data-sort="balance">Баланс</th>
+                                <th>Статус</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clientsBody">
+                            <tr><td colspan="8" class="empty-state">Загрузка...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card" id="adminSectionActivity">
+                <div class="card-header">
+                    <h3>🔐 Логи активности</h3>
+                    <div class="card-header-actions">
+                        <select id="adminAutoRefresh" class="admin-filter-select" title="Автообновление">
+                            <option value="0">Выкл</option>
+                            <option value="30">30 с</option>
+                            <option value="60">1 мин</option>
+                        </select>
+                        <button class="btn btn-secondary btn-sm" id="exportActivityLogsCsvBtn">Экспорт CSV</button>
+                        <button class="btn btn-primary btn-sm" id="refreshActivityLogsBtn">Обновить</button>
+                    </div>
+                </div>
+                <div class="admin-filters">
+                    <input type="search" id="activityLogsSearch" class="admin-search" placeholder="Поиск по действию, IP, UA..." autocomplete="off">
+                    <select id="activityLogsUserFilter" class="admin-filter-select" title="Фильтр по клиенту">
+                        <option value="">Все клиенты</option>
+                    </select>
+                    <select id="activityLogsActionFilter" class="admin-filter-select" title="Тип действия">
+                        <option value="">Все действия</option>
+                    </select>
+                    <input type="date" id="activityLogsDateFrom" class="admin-filter-date" title="Дата от">
+                    <input type="date" id="activityLogsDateTo" class="admin-filter-date" title="Дата до">
+                    <select id="activityLogsPerPage" class="admin-filter-select">
+                        <option value="25">25/стр.</option>
+                        <option value="50" selected>50/стр.</option>
+                        <option value="100">100/стр.</option>
+                    </select>
+                </div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table" id="activityLogsTable">
+                        <thead>
+                            <tr>
+                                <th>Время</th>
+                                <th>Клиент</th>
+                                <th>Действие</th>
+                                <th>Детали</th>
+                                <th>IP</th>
+                                <th>UA</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activityLogsBody">
+                            <tr><td colspan="6" class="empty-state">Загрузка...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="activityLogsPagination" class="admin-pagination"></div>
+            </div>
+
+            <div class="card" id="adminSectionApiLogs">
+                <div class="card-header">
+                    <h3>📋 Логи внешних API</h3>
+                    <div class="card-header-actions">
+                        <button class="btn btn-secondary btn-sm" id="exportApiLogsCsvBtn">Экспорт CSV</button>
+                        <button class="btn btn-primary btn-sm" id="refreshApiLogsBtn">Обновить</button>
+                    </div>
+                </div>
+                <div id="apiLogsMetrics" class="admin-stats-row"></div>
+                <div class="admin-filters">
+                    <select id="apiLogsServiceFilter" class="admin-filter-select">
+                        <option value="">Все сервисы</option>
+                        <option value="groq">groq</option>
+                        <option value="openai">openai</option>
+                        <option value="anthropic">anthropic</option>
+                    </select>
+                    <input type="date" id="apiLogsDateFrom" class="admin-filter-date" title="Дата от">
+                    <input type="date" id="apiLogsDateTo" class="admin-filter-date" title="Дата до">
+                    <select id="apiLogsPerPage" class="admin-filter-select">
+                        <option value="25">25/стр.</option>
+                        <option value="50" selected>50/стр.</option>
+                        <option value="100">100/стр.</option>
+                    </select>
+                </div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table" id="apiLogsTable">
+                        <thead>
+                            <tr>
+                                <th>Время</th>
+                                <th>Сервис</th>
+                                <th>Клиент</th>
+                                <th>Статус</th>
+                                <th>Мс</th>
+                                <th>Ошибка</th>
+                            </tr>
+                        </thead>
+                        <tbody id="apiLogsBody">
+                            <tr><td colspan="6" class="empty-state">Загрузка...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="apiLogsPagination" class="admin-pagination"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal: Create/Edit Categorization Rule -->
+    <div id="adminRuleModal" class="modal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h3 id="adminRuleModalTitle">Новое правило</h3>
+                <button type="button" class="btn-close modal-close" aria-label="Закрыть">×</button>
+            </div>
+            <form id="adminRuleForm">
+                <input type="hidden" id="adminRuleId" value="">
+                <div class="form-group">
+                    <label for="adminRuleName">Название (опционально)</label>
+                    <input type="text" id="adminRuleName" placeholder="Напр. ЕВРООПТ">
+                </div>
+                <div class="form-group">
+                    <label for="adminRulePattern">Паттерн мерчанта (содержит)</label>
+                    <input type="text" id="adminRulePattern" placeholder="ЕВРООПТ" required>
+                </div>
+                <div class="form-group">
+                    <label for="adminRuleCategory">Категория (название)</label>
+                    <input type="text" id="adminRuleCategory" placeholder="Продукты" required>
+                </div>
+                <div class="form-group form-check">
+                    <input type="checkbox" id="adminRuleIsAuto" checked>
+                    <label for="adminRuleIsAuto">Авто (подставлять молча)</label>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Create/Edit Client -->
+    <div id="clientModal" class="modal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h3 id="clientModalTitle">Новый клиент</h3>
+                <button class="btn-close modal-close" aria-label="Закрыть">×</button>
+            </div>
+            <form id="clientForm">
+                <input type="hidden" id="clientId" value="">
+                <div class="form-group">
+                    <label for="clientEmail">Email</label>
+                    <input type="email" id="clientEmail" required>
+                </div>
+                <div class="form-group" id="passwordGroup">
+                    <label for="clientPassword">Пароль</label>
+                    <input type="password" id="clientPassword" placeholder="Оставьте пустым для сохранения">
+                </div>
+                <div class="form-group">
+                    <label for="clientName">Имя</label>
+                    <input type="text" id="clientName" placeholder="Имя клиента">
+                </div>
+                <div class="form-group form-check" id="activeGroup">
+                    <input type="checkbox" id="clientActive" checked>
+                    <label for="clientActive">Активен</label>
+                </div>
+                <div class="form-group" id="experimentalGroup">
+                    <label>Модули</label>
+                    <div class="form-check">
+                        <input type="checkbox" id="expBankReceipt" name="experimental_features[]" value="bank_receipt_import">
+                        <label for="expBankReceipt">Загрузка чеков из банкинга</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" id="expNotes" name="experimental_features[]" value="notes">
+                        <label for="expNotes">Заметки</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" id="expCalendar" name="experimental_features[]" value="calendar">
+                        <label for="expCalendar">Календарь</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" id="expTelegram" name="experimental_features[]" value="telegram_bot">
+                        <label for="expTelegram">Telegram бот</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" id="expAdvancedAnalytics" name="experimental_features[]" value="advanced_analytics">
+                        <label for="expAdvancedAnalytics">Расширенная аналитика</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" id="expAutoDebit" name="experimental_features[]" value="auto_debit">
+                        <label for="expAutoDebit">Автосписание по платежам</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" id="expAutoSavings" name="experimental_features[]" value="auto_savings">
+                        <label for="expAutoSavings">Авто-накопления</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" id="expAiAnalysis" name="experimental_features[]" value="ai_analysis">
+                        <label for="expAiAnalysis">AI-анализ</label>
+                    </div>
+                </div>
+                <div class="form-group" id="aiProviderGroup">
+                    <label>AI-провайдер</label>
+                    <div class="form-check">
+                        <input type="radio" id="aiProviderDefault" name="ai_provider" value="">
+                        <label for="aiProviderDefault">По умолчанию (env)</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="radio" id="aiProviderGroq" name="ai_provider" value="groq">
+                        <label for="aiProviderGroq">Groq</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="radio" id="aiProviderOpenai" name="ai_provider" value="openai">
+                        <label for="aiProviderOpenai">OpenAI</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="radio" id="aiProviderAnthropic" name="ai_provider" value="anthropic">
+                        <label for="aiProviderAnthropic">Anthropic</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="radio" id="aiProviderOllama" name="ai_provider" value="ollama">
+                        <label for="aiProviderOllama">Ollama (локальный)</label>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="/src/pages/admin.ts"></script>
+</body>
+</html>

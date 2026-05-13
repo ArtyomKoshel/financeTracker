@@ -1,0 +1,515 @@
+{
+  "info": {
+    "_postman_id": "finance-tracker-api-v2",
+    "name": "Finance Tracker API",
+    "description": "Полная коллекция API Finance Tracker. Установите переменную {{base_url}} = http://localhost:8000/api и {{token}} после логина.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000/api", "type": "string" },
+    { "key": "token", "value": "", "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "url": "{{base_url}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bootstrap",
+      "item": [
+        {
+          "name": "Bootstrap",
+          "request": { "method": "GET", "url": "{{base_url}}/bootstrap" }
+        },
+        {
+          "name": "Me",
+          "request": { "method": "GET", "url": "{{base_url}}/me" }
+        },
+        {
+          "name": "Ping",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{base_url}}/ping" }
+        }
+      ]
+    },
+    {
+      "name": "Transactions",
+      "item": [
+        {
+          "name": "List transactions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/transactions?page=1&per_page=50&month=2026-03",
+              "host": ["{{base_url}}"],
+              "path": ["transactions"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "per_page", "value": "50" },
+                { "key": "month", "value": "2026-03", "disabled": true },
+                { "key": "year", "value": "2026", "disabled": true },
+                { "key": "type", "value": "expense", "disabled": true },
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "tag", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create transaction",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/transactions",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"type\": \"expense\",\n  \"amount\": 15.50,\n  \"category_id\": 1,\n  \"date\": \"2026-03-03\",\n  \"description\": \"Кофе\"\n}" }
+          }
+        },
+        {
+          "name": "Delete transaction",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/transactions?id=1"
+          }
+        },
+        {
+          "name": "Transactions by month",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/transactions/month?month=2026-03"
+          }
+        },
+        {
+          "name": "Export CSV",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/transactions/export?month=2026-03"
+          }
+        },
+        {
+          "name": "Bulk delete",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/transactions/bulk-delete",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"ids\": [1, 2, 3]\n}" }
+          }
+        },
+        {
+          "name": "Bulk update",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/transactions/bulk-update",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"ids\": [1, 2],\n  \"category_id\": 5\n}" }
+          }
+        },
+        {
+          "name": "Suggest category",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/transactions/suggest-category?description=Продукты+в+Евроопте"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tags",
+      "item": [
+        {
+          "name": "List tags",
+          "request": { "method": "GET", "url": "{{base_url}}/tags" }
+        },
+        {
+          "name": "Create tag",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/tags",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"работа\",\n  \"color\": \"#3B82F6\"\n}" }
+          }
+        },
+        {
+          "name": "Delete tag",
+          "request": { "method": "DELETE", "url": "{{base_url}}/tags/1" }
+        },
+        {
+          "name": "Sync transaction tags",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/transactions/1/tags",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"tags\": [\"работа\", \"командировка\"]\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Budgets",
+      "item": [
+        {
+          "name": "List budgets",
+          "request": { "method": "GET", "url": "{{base_url}}/budgets?month=2026-03" }
+        },
+        {
+          "name": "Set budget limit",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/budgets",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"category_id\": 1,\n  \"month\": \"2026-03\",\n  \"amount\": 500\n}" }
+          }
+        },
+        {
+          "name": "Delete budget limit",
+          "request": { "method": "DELETE", "url": "{{base_url}}/budgets?category_id=1&month=2026-03" }
+        },
+        {
+          "name": "Copy budgets to next month",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/budgets/copy",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"from_month\": \"2026-03\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "List categories",
+          "request": { "method": "GET", "url": "{{base_url}}/categories" }
+        },
+        {
+          "name": "Create category",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/categories",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Спорт\",\n  \"icon\": \"🏋️\",\n  \"color\": \"#10B981\"\n}" }
+          }
+        },
+        {
+          "name": "Update category",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/categories/update",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"id\": 1,\n  \"name\": \"Продукты\"\n}" }
+          }
+        },
+        {
+          "name": "Delete category",
+          "request": { "method": "DELETE", "url": "{{base_url}}/categories/delete?id=1" }
+        }
+      ]
+    },
+    {
+      "name": "Accounts",
+      "item": [
+        {
+          "name": "Get balance",
+          "request": { "method": "GET", "url": "{{base_url}}/balance" }
+        },
+        {
+          "name": "Set initial balance",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/balance",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 1000,\n  \"account_id\": 1\n}" }
+          }
+        },
+        {
+          "name": "Sync balance",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/balance/sync",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"actual_balance\": 950,\n  \"account_id\": 1\n}" }
+          }
+        },
+        {
+          "name": "List accounts",
+          "request": { "method": "GET", "url": "{{base_url}}/accounts" }
+        },
+        {
+          "name": "Create account",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/accounts",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Карта Альфа\",\n  \"currency\": \"BYN\",\n  \"icon\": \"💳\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "List payments",
+          "request": { "method": "GET", "url": "{{base_url}}/payments" }
+        },
+        {
+          "name": "Create payment",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/payments",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Интернет\",\n  \"amount\": 30,\n  \"day\": 10,\n  \"category_id\": 2\n}" }
+          }
+        },
+        {
+          "name": "Update payment",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/payments",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"id\": 1,\n  \"amount\": 35\n}" }
+          }
+        },
+        {
+          "name": "Delete payment",
+          "request": { "method": "DELETE", "url": "{{base_url}}/payments?id=1" }
+        },
+        {
+          "name": "Reminders",
+          "request": { "method": "GET", "url": "{{base_url}}/payments/reminders" }
+        },
+        {
+          "name": "Calendar",
+          "request": { "method": "GET", "url": "{{base_url}}/payments/calendar?month=2026-03" }
+        }
+      ]
+    },
+    {
+      "name": "Goals",
+      "item": [
+        {
+          "name": "List goals",
+          "request": { "method": "GET", "url": "{{base_url}}/goals" }
+        },
+        {
+          "name": "Create goal",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/goals",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Отпуск\",\n  \"target_amount\": 2000,\n  \"target_date\": \"2026-07-01\"\n}" }
+          }
+        },
+        {
+          "name": "Update goal",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/goals",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"id\": 1,\n  \"target_amount\": 2500\n}" }
+          }
+        },
+        {
+          "name": "Delete goal",
+          "request": { "method": "DELETE", "url": "{{base_url}}/goals?id=1" }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Monthly analytics",
+          "request": { "method": "GET", "url": "{{base_url}}/analytics?month=2026-03" }
+        },
+        {
+          "name": "By category",
+          "request": { "method": "GET", "url": "{{base_url}}/analytics/by-category?category_id=1&month=2026-03" }
+        },
+        {
+          "name": "Yearly",
+          "request": { "method": "GET", "url": "{{base_url}}/analytics/year?year=2026" }
+        },
+        {
+          "name": "Compare months",
+          "request": { "method": "GET", "url": "{{base_url}}/analytics/compare?month1=2026-02&month2=2026-03" }
+        },
+        {
+          "name": "Spending velocity",
+          "request": { "method": "GET", "url": "{{base_url}}/analytics/velocity" }
+        },
+        {
+          "name": "Top growth",
+          "request": { "method": "GET", "url": "{{base_url}}/analytics/top-growth" }
+        },
+        {
+          "name": "Year-over-Year",
+          "request": { "method": "GET", "url": "{{base_url}}/analytics/yoy?month=2026-03" }
+        },
+        {
+          "name": "Forecast",
+          "request": { "method": "GET", "url": "{{base_url}}/forecast?months=3" }
+        },
+        {
+          "name": "AI Recommendations",
+          "request": { "method": "GET", "url": "{{base_url}}/recommendations" }
+        },
+        {
+          "name": "Tax summary (USN 6% / self-employed 4%)",
+          "request": { "method": "GET", "url": "{{base_url}}/tax?date_from=2026-01&date_to=2026-03" }
+        },
+        {
+          "name": "Parse bank email text (AI)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/email-parse",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"text\": \"Уважаемый клиент, по Вашей карте выполнена операция на сумму 25.50 BYN в магазине Евроопт 03.03.2026.\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Financial health score",
+          "request": { "method": "GET", "url": "{{base_url}}/health" }
+        },
+        {
+          "name": "Net worth history",
+          "request": { "method": "GET", "url": "{{base_url}}/health/net-worth-history" }
+        }
+      ]
+    },
+    {
+      "name": "Settings",
+      "item": [
+        {
+          "name": "Get settings",
+          "request": { "method": "GET", "url": "{{base_url}}/settings" }
+        },
+        {
+          "name": "Update settings",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/settings",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"currency\": \"BYN\",\n  \"language\": \"ru\"\n}" }
+          }
+        },
+        {
+          "name": "Currency rates",
+          "request": { "method": "GET", "url": "{{base_url}}/rates" }
+        }
+      ]
+    },
+    {
+      "name": "Debts",
+      "item": [
+        {
+          "name": "List debts",
+          "request": { "method": "GET", "url": "{{base_url}}/debts" }
+        },
+        {
+          "name": "Create debt",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/debts",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Иван\",\n  \"amount\": 100,\n  \"type\": \"lent\"\n}" }
+          }
+        },
+        {
+          "name": "Update debt",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/debts",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"id\": 1,\n  \"is_closed\": true\n}" }
+          }
+        },
+        {
+          "name": "Delete debt",
+          "request": { "method": "DELETE", "url": "{{base_url}}/debts?id=1" }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Dashboard",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/dashboard" }
+        },
+        {
+          "name": "List clients",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/clients" }
+        },
+        {
+          "name": "Create client",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/admin/clients",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"client@example.com\",\n  \"password\": \"secret123\",\n  \"name\": \"Иван Иванов\"\n}" }
+          }
+        },
+        {
+          "name": "Update client",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/admin/clients/1",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"is_active\": true,\n  \"experimental_features\": [\"bank_receipt_import\", \"notes\", \"advanced_analytics\"]\n}" }
+          }
+        },
+        {
+          "name": "Impersonate client",
+          "request": { "method": "POST", "url": "{{base_url}}/admin/clients/1/impersonate" }
+        },
+        {
+          "name": "Activity logs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/admin/activity-logs?page=1&per_page=50",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "activity-logs"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "per_page", "value": "50" },
+                { "key": "date_from", "value": "", "disabled": true },
+                { "key": "date_to", "value": "", "disabled": true },
+                { "key": "action", "value": "", "disabled": true },
+                { "key": "search", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "External API logs",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/external-api-logs?page=1&per_page=50" }
+        },
+        {
+          "name": "Charts",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/charts?months=6" }
+        }
+      ]
+    }
+  ]
+}

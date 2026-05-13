@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#6C5CE7">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Finance Tracker</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="stylesheet" href="/static/style.css">
+    <script>
+        // Redirect to login if no token
+        if (!localStorage.getItem('auth_token')) {
+            window.location.href = '/login.html';
+        }
+    </script>
+</head>
+<body>
+    <script>document.body.setAttribute('data-theme', localStorage.getItem('theme') || 'dark');</script>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="logo">Finance Tracker</h1>
+            <div>
+                <a href="#" class="btn btn-text" id="backToAdminLink" style="display:none" title="Вернуться в админку">← В админку</a>
+                <a href="/admin.html" class="btn btn-text" id="adminLink" style="display:none" title="Админ">👥</a>
+                <button class="btn btn-icon" data-tab="settings" title="Настройки">⚙️</button>
+                <button class="btn btn-icon" id="logoutBtn" title="Выход">🚪</button>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="tabs" role="tablist">
+            <button type="button" class="tab active" data-tab="dashboard" role="tab" aria-selected="true">
+                <span class="tab-icon">🏠</span>
+                <span class="tab-label">Главная</span>
+            </button>
+            <button type="button" class="tab" data-tab="operations" role="tab" aria-selected="false">
+                <span class="tab-icon">💳</span>
+                <span class="tab-label">Операции</span>
+            </button>
+            <button type="button" class="tab" data-tab="analytics" role="tab" aria-selected="false">
+                <span class="tab-icon">📊</span>
+                <span class="tab-label">Аналитика</span>
+            </button>
+            <button type="button" class="tab" data-tab="plans" role="tab" aria-selected="false">
+                <span class="tab-icon">📋</span>
+                <span class="tab-label">Планы</span>
+            </button>
+            <button type="button" class="tab" data-tab="budget" role="tab" aria-selected="false">
+                <span class="tab-icon">💰</span>
+                <span class="tab-label">Бюджет</span>
+            </button>
+            <button type="button" class="tab" data-tab="settings" role="tab" aria-selected="false">
+                <span class="tab-icon">⚙️</span>
+                <span class="tab-label">Настройки</span>
+            </button>
+            <button type="button" class="tab" id="notesTab" data-tab="notes" style="display:none" title="Заметки (эксперимент)" role="tab" aria-selected="false">
+                <span class="tab-icon">📝</span>
+                <span class="tab-label">Заметки</span>
+                <span class="tab-badge" title="Экспериментальная функция">🧪</span>
+            </button>
+            <button type="button" class="tab" id="calendarTab" data-tab="calendar" style="display:none" title="Календарь (эксперимент)" role="tab" aria-selected="false">
+                <span class="tab-icon">📅</span>
+                <span class="tab-label">Календарь</span>
+                <span class="tab-badge" title="Экспериментальная функция">🧪</span>
+            </button>
+            <button type="button" class="tab" id="bankReceiptsTab" data-tab="bank-receipts" style="display:none" title="Загрузка чеков (эксперимент)" role="tab">
+                <span class="tab-icon">🧾</span>
+                <span class="tab-label">Чеки</span>
+                <span class="tab-badge" title="Экспериментальная функция">🧪</span>
+            </button>
+        </nav>
+
+        <!-- Tab Content -->
+        <main class="content" role="main">
+            <!-- Dashboard Tab -->
+            <section id="tab-dashboard" class="tab-content active" role="tabpanel" aria-label="Главная">
+                <!-- Balance Card -->
+                <div class="balance-card">
+                    <div class="balance-header">
+                        <span class="balance-label">Баланс</span>
+                    </div>
+                    <div class="balance-amount" id="balanceAmount">0 Br</div>
+                    <div class="balance-accounts" id="balanceAccounts"></div>
+                    <div class="balance-sync" id="balanceSync"></div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <button class="quick-btn income" data-action="income">
+                        <span class="quick-icon">↓</span>
+                        <span>Доход</span>
+                    </button>
+                    <button class="quick-btn expense" data-action="expense">
+                        <span class="quick-icon">↑</span>
+                        <span>Расход</span>
+                    </button>
+                    <button class="quick-btn savings" data-action="savings">
+                        <span class="quick-icon">💰</span>
+                        <span>Копилка</span>
+                    </button>
+                    <button class="quick-btn savings-withdraw" data-action="savings_withdrawal">
+                        <span class="quick-icon">💸</span>
+                        <span>Снять</span>
+                    </button>
+                    <button class="quick-btn transfer" data-action="transfer">
+                        <span class="quick-icon">↔</span>
+                        <span>Перевод</span>
+                    </button>
+                    <button class="quick-btn sync" data-action="sync">
+                        <span class="quick-icon">⚖️</span>
+                        <span>Сверка</span>
+                    </button>
+                    <button class="quick-btn plans" data-action="plans">
+                        <span class="quick-icon">📋</span>
+                        <span>Платежи</span>
+                    </button>
+                    <button class="quick-btn budget" data-action="budget">
+                        <span class="quick-icon">📊</span>
+                        <span>Бюджет</span>
+                    </button>
+                </div>
+
+                <!-- Main Content Column (Desktop: left side) -->
+                <div class="dashboard-main-column">
+                    <!-- До следующего дохода (Cashflow) — важная секция -->
+                    <div class="card recommendations-card" id="dashboardRecommendations">
+                        <div class="card-header">
+                            <h3>📅 До следующего дохода</h3>
+                            <button class="btn-text" id="refreshRecommendationsBtn">Обновить</button>
+                        </div>
+                        <div class="recommendations-content" id="dashboardRecContent">
+                            <p class="empty-state">Загрузка...</p>
+                        </div>
+                    </div>
+
+                    <!-- Overdue Payments Alert -->
+                    <div class="card alert-card" id="overdueCard" style="display: none;">
+                        <div class="card-header">
+                            <h3>⚠️ Просроченные платежи</h3>
+                        </div>
+                        <div class="alert-message">
+                            Есть неоплаченные платежи. Проверьте и отметьте оплаченные.
+                        </div>
+                        <div class="payments-list overdue-list" id="overduePayments"></div>
+                    </div>
+
+                    <!-- Upcoming Payments (последнее) -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>📅 Предстоящие платежи</h3>
+                            <button class="btn-text" data-tab="plans">Все</button>
+                        </div>
+                        <div class="payments-list" id="upcomingPayments">
+                            <p class="empty-state">Нет предстоящих платежей</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sidebar Content Column (Desktop: right side) -->
+                <div class="dashboard-sidebar-column">
+                    <!-- Month Summary (приоритет: ключевые метрики) -->
+                    <div class="card dashboard-month-card">
+                        <div class="card-header">
+                            <h3>📈 Этот месяц</h3>
+                        </div>
+                        <div class="month-stats">
+                            <div class="month-stat income">
+                                <span class="stat-icon">↓</span>
+                                <div class="stat-info">
+                                    <span class="stat-label">Доходы</span>
+                                    <span class="stat-value" id="monthIncome">0 Br</span>
+                                </div>
+                            </div>
+                            <div class="month-stat expense">
+                                <span class="stat-icon">↑</span>
+                                <div class="stat-info">
+                                    <span class="stat-label">Расходы</span>
+                                    <span class="stat-value" id="monthExpenses">0 Br</span>
+                                </div>
+                            </div>
+                            <div class="month-stat savings">
+                                <span class="stat-icon">💰</span>
+                                <div class="stat-info">
+                                    <span class="stat-label">Накоплено</span>
+                                    <span class="stat-value" id="monthSavings">0 Br</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Financial Health Score -->
+                    <div id="healthScoreContainer"></div>
+                </div>
+
+            </section>
+
+            <!-- Operations Tab -->
+            <section id="tab-operations" class="tab-content" role="tabpanel" aria-label="Операции">
+                <!-- Transaction Form (component) -->
+                <div id="transactionFormContainer"></div>
+
+                <!-- Filters (component) -->
+                <div id="filterBarContainer"></div>
+
+                <!-- Operations List Column (Desktop: left side) -->
+                <div class="operations-list-column">
+                    <!-- Bulk Actions Toolbar (hidden by default) -->
+                    <div class="bulk-toolbar" id="bulkToolbar" style="display:none">
+                        <span class="bulk-count" id="bulkCount">0 выбрано</span>
+                        <button class="btn btn-sm btn-danger" id="bulkDeleteBtn">🗑 Удалить</button>
+                        <button class="btn btn-sm btn-primary" id="bulkCategoryBtn">📂 Категория</button>
+                        <button class="btn btn-sm btn-outline" id="bulkCancelBtn">Отмена</button>
+                    </div>
+
+                    <!-- Export & Actions -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>📋 Все операции</h3>
+                            <div class="card-actions">
+                                <button class="btn btn-sm btn-outline" id="exportCsvBtn" title="Экспорт CSV">📥 Экспорт</button>
+                                <button class="btn btn-sm btn-outline" id="toggleBulkModeBtn" title="Массовые операции">☑ Выбрать</button>
+                            </div>
+                        </div>
+                        <div id="transactionListContainer"></div>
+                    </div>
+                </div>
+
+                <!-- Operations Details Panel (Desktop: right side) -->
+                <div class="operations-details-panel empty" id="operationsDetailsPanel">
+                    <div class="empty-icon">💳</div>
+                    <p>Выберите операцию для просмотра деталей</p>
+                </div>
+            </section>
+
+            <!-- Analytics Tab -->
+            <section id="tab-analytics" class="tab-content" role="tabpanel" aria-label="Аналитика">
+                <!-- Month Selector -->
+                <div class="analytics-header">
+                    <button class="btn-icon" id="analyticsPrevMonth" aria-label="Предыдущий месяц">←</button>
+                    <span id="analyticsMonth">Январь 2026</span>
+                    <button class="btn-icon" id="analyticsNextMonth" aria-label="Следующий месяц">→</button>
+                </div>
+
+                <!-- Financial Health Score -->
+                <div id="healthScoreContainer"></div>
+
+                <!-- Summary Cards -->
+                <div class="analytics-summary">
+                    <div class="summary-card income">
+                        <span class="summary-label">Доходы <span class="hint-icon" data-hint="Сумма доходов за период. Не включает коррекции баланса (сверку)" title="Доходы">❓</span></span>
+                        <span class="summary-value" id="analyticsIncome">0 Br</span>
+                    </div>
+                    <div class="summary-card expense">
+                        <span class="summary-label">Расходы <span class="hint-icon" data-hint="Сумма всех расходов за период по всем категориям" title="Расходы">❓</span></span>
+                        <span class="summary-value" id="analyticsExpenses">0 Br</span>
+                    </div>
+                    <div class="summary-card balance">
+                        <span class="summary-label">Баланс <span class="hint-icon" data-hint="Доходы минус Расходы за период. Показывает прибыль (+) или убыток (-)" title="Баланс периода">❓</span></span>
+                        <span class="summary-value" id="analyticsBalance">0 Br</span>
+                    </div>
+                </div>
+
+                <!-- Analytics Cards Grid (desktop: 2 columns) -->
+                <div id="analytics-cards-wrapper">
+                <!-- Expenses by Category -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🥧 Расходы по категориям</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                    <div class="category-legend" id="categoryLegend"></div>
+                </div>
+
+                <!-- Monthly Trend -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📈 Динамика</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Month Comparison -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📊 Сравнение месяцев</h3>
+                    </div>
+                    <div class="comparison-selector">
+                        <select id="compareMonth1">
+                            <option value="">Выберите месяц 1</option>
+                        </select>
+                        <span class="vs-label">vs</span>
+                        <select id="compareMonth2">
+                            <option value="">Выберите месяц 2</option>
+                        </select>
+                        <button class="btn btn-primary btn-sm" id="compareMonthsBtn">Сравнить</button>
+                    </div>
+                    <div id="comparisonResults" class="comparison-results">
+                        <p class="empty-state">Выберите месяцы для сравнения</p>
+                    </div>
+                </div>
+
+                <!-- Spending Velocity -->
+                <div class="card" id="velocityCard">
+                    <div class="card-header">
+                        <h3>⚡ Скорость трат</h3>
+                    </div>
+                    <div id="velocityContent">
+                        <p class="empty-state">Загрузка...</p>
+                    </div>
+                </div>
+
+                <!-- Top Growing Categories -->
+                <div class="card" id="topGrowthCard">
+                    <div class="card-header">
+                        <h3>📊 Рост расходов по категориям</h3>
+                    </div>
+                    <div id="topGrowthContent">
+                        <p class="empty-state">Загрузка...</p>
+                    </div>
+                </div>
+
+                <!-- Net Worth History -->
+                <div class="card" id="netWorthCard">
+                    <div class="card-header">
+                        <h3>💎 Чистая стоимость</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="netWorthChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Forecast -->
+                <div class="card" id="forecastCard">
+                    <div class="card-header">
+                        <h3>📈 Прогноз на 3 месяца</h3>
+                        <button class="btn-text" id="refreshForecastBtn" title="Обновить">↻</button>
+                    </div>
+                    <div class="forecast-scenarios-toggle" id="forecastScenariosToggle">
+                        <label class="form-check inline-check">
+                            <input type="checkbox" id="forecastScenariosCheckbox">
+                            <span>Показать сценарии (лучший/худший)</span>
+                        </label>
+                    </div>
+                    <div class="forecast-content" id="forecastContent">
+                        <p class="empty-state">Загрузка...</p>
+                    </div>
+                </div>
+
+                <!-- AI Recommendations -->
+                <div class="card" id="aiRecommendationsCard">
+                    <div class="card-header">
+                        <h3>💡 Рекомендации</h3>
+                        <button class="btn-text" id="refreshAIRecommendationsBtn" title="Обновить">↻</button>
+                    </div>
+                    <div class="ai-recommendations-content" id="aiRecommendationsContent">
+                        <p class="empty-state">Загрузка...</p>
+                    </div>
+                </div>
+                </div>
+            </section>
+
+            <!-- Plans Tab -->
+            <section id="tab-plans" class="tab-content" role="tabpanel" aria-label="Плановые платежи">
+                <!-- Recurring Payments (main list first, like competitors) -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📅 Плановые платежи</h3>
+                        <button class="btn-text" id="openAddPaymentModalBtn">+ Добавить</button>
+                    </div>
+                    <div class="payments-list" id="recurringPayments">
+                        <p class="empty-state">Нет плановых платежей</p>
+                    </div>
+                </div>
+
+                <!-- Payment Calendar (secondary overview) -->
+                <div class="card" id="paymentCalendarCard">
+                    <div class="card-header">
+                        <h3>📆 Календарь платежей</h3>
+                        <button class="btn-text" id="toggleCalendarBtn" title="Свернуть/развернуть">−</button>
+                    </div>
+                    <div class="payment-calendar" id="paymentCalendar">
+                        <p class="empty-state">Загрузка...</p>
+                    </div>
+                </div>
+
+                <!-- Detected Subscriptions -->
+                <div class="card" id="detectedSubscriptionsCard">
+                    <div class="card-header">
+                        <h3>🔍 Обнаруженные подписки</h3>
+                        <button class="btn-text" id="detectSubscriptionsBtn" title="Обновить">↻ Проверить</button>
+                    </div>
+                    <div class="detected-subscriptions-list" id="detectedSubscriptionsList">
+                        <p class="empty-state">Нажмите «Проверить» для поиска повторяющихся платежей</p>
+                    </div>
+                </div>
+
+                <!-- Subscription Cancel Reminders -->
+                <div class="card" id="subscriptionRemindersCard">
+                    <div class="card-header">
+                        <h3>🔄 Напоминания об отмене подписок</h3>
+                    </div>
+                    <div class="subscription-reminders-list" id="subscriptionRemindersList">
+                        <p class="empty-state">Нет подписок с датой отмены</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Budget Tab (YNAB-style: overview first, then limits, goal, envelopes, debts) -->
+            <section id="tab-budget" class="tab-content" role="tabpanel" aria-label="Бюджет">
+                <!-- Monthly Budget (primary: income - expenses = remaining) -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>💰 Бюджет на месяц</h3>
+                    </div>
+                    <div class="budget-overview" id="budgetOverview">
+                        <div class="budget-row">
+                            <span>Доход <span class="hint-icon" data-hint="Сумма всех доходов за месяц" title="Доход">❓</span></span>
+                            <span class="amount positive" id="budgetIncome">0 Br</span>
+                        </div>
+                        <div class="budget-row">
+                            <span>Оплачено платежей <span class="hint-icon" data-hint="Сумма оплаченных плановых платежей" title="Платежи">❓</span></span>
+                            <span class="amount negative" id="budgetPayments">0 Br</span>
+                        </div>
+                        <div class="budget-row">
+                            <span>Накоплено <span class="hint-icon" data-hint="Сумма переводов в копилку" title="Накопления">❓</span></span>
+                            <span class="amount neutral" id="budgetSavings">0 Br</span>
+                        </div>
+                        <div class="budget-row">
+                            <span>Прочие расходы <span class="hint-icon" data-hint="Расходы не по плановым платежам" title="Расходы">❓</span></span>
+                            <span class="amount negative" id="budgetExpenses">0 Br</span>
+                        </div>
+                        <div class="budget-row total">
+                            <span>Остаток <span class="hint-icon" data-hint="Доход - Платежи - Накопления - Расходы" title="Остаток">❓</span></span>
+                            <span class="amount" id="budgetRemaining">0 Br</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Category Budgets (main budgeting: limits per category) -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📊 Лимиты по категориям</h3>
+                        <button class="btn-text" id="openAddBudgetModalBtn">+ Добавить</button>
+                    </div>
+                    <div class="category-budgets-list" id="categoryBudgetsList">
+                        <p class="empty-state">Нет лимитов на этот месяц</p>
+                    </div>
+                </div>
+
+                <!-- Goal Section -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🎯 Цель накоплений</h3>
+                        <button class="btn-text" id="openGoalModalBtn">Изменить</button>
+                    </div>
+                    <div id="planGoalContent">
+                        <p class="empty-state">Цель не установлена</p>
+                    </div>
+                </div>
+
+                <!-- Savings Plan -->
+                <div class="card" id="savingsPlanCard">
+                    <div class="card-header">
+                        <h3>📈 План накоплений</h3>
+                    </div>
+                    <div id="savingsPlanContent">
+                        <p class="empty-state">Загрузка...</p>
+                    </div>
+                </div>
+
+                <!-- Completed Goals (history) -->
+                <div class="card" id="completedGoalsCard">
+                    <div class="card-header">
+                        <h3>📋 Завершённые цели</h3>
+                    </div>
+                    <div class="completed-goals-list" id="completedGoalsList">
+                        <p class="empty-state">Нет завершённых целей</p>
+                    </div>
+                </div>
+
+                <!-- Envelopes (Banks) -->
+                <div class="card" id="envelopesCard">
+                    <div class="card-header">
+                        <h3>📦 Банки</h3>
+                        <button class="btn-text" id="openAddEnvelopeModalBtn">+ Добавить</button>
+                    </div>
+                    <small class="hint block-hint">Выделенная сумма на цель в этом месяце</small>
+                    <div class="envelopes-list" id="envelopesList">
+                        <p class="empty-state">Нет банок на этот месяц</p>
+                    </div>
+                </div>
+
+                <!-- Debts -->
+                <div class="card" id="debtsCard">
+                    <div class="card-header">
+                        <h3>💳 Долги</h3>
+                        <button class="btn-text" id="openAddDebtModalBtn">+ Добавить</button>
+                    </div>
+                    <div class="debts-list" id="debtsList">
+                        <p class="empty-state">Нет долгов</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings Tab -->
+            <section id="tab-settings" class="tab-content" role="tabpanel" aria-label="Настройки">
+                <!-- Salary Settings -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>💼 Настройки зарплаты</h3>
+                    </div>
+                    <p class="settings-hint text-muted" style="margin: 0 1rem 1rem; font-size: 0.9em;">
+                        Влияют на дашборд, прогноз баланса и расчёт свободных средств. Изменения применяются сразу к будущим расчётам. Прошлые данные не меняются.
+                    </p>
+                    <form id="settingsForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Оклад (BYN)</label>
+                                <input type="number" id="grossSalary" placeholder="2000">
+                                <small class="hint">Используется в прогнозе, если нет истории доходов</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Ожидаемый аванс (BYN)</label>
+                                <input type="number" id="expectedAdvance" placeholder="2000">
+                                <small class="hint">Вместе с окладом — ожидаемый доход в месяц</small>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>День аванса</label>
+                                <input type="number" id="advanceDay" min="1" max="31" placeholder="30">
+                                <small class="hint">Дашборд: «платежи до следующего дохода»</small>
+                            </div>
+                            <div class="form-group">
+                                <label>День зарплаты</label>
+                                <input type="number" id="salaryDay" min="1" max="31" placeholder="15">
+                                <small class="hint">Дашборд: расчёт дней до дохода</small>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>% накоплений</label>
+                                <input type="number" id="savingsPercent" min="0" max="100" placeholder="20">
+                                <small class="hint">Рекомендуемый % от свободных средств на дашборде</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Минимум на жизнь (BYN)</label>
+                                <input type="number" id="minLivingBudget" placeholder="1500">
+                                <small class="hint">Минимальный бюджет на месяц для расчёта свободных средств</small>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Авто-накопление (% от дохода)</label>
+                                <input type="number" id="autoSavingsPercent" min="0" max="100" step="0.5" placeholder="Н-р: 10">
+                                <small class="hint">При каждом доходе автоматически создаётся транзакция «В копилку». 0 — отключено</small>
+                            </div>
+                            <div class="form-group">
+                                <label>ID цели для авто-накопления</label>
+                                <input type="number" id="autoSavingsGoalId" min="0" placeholder="Оставьте пустым">
+                                <small class="hint">Необязательно: привязать накопление к конкретной цели</small>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Сохранить настройки</button>
+                    </form>
+                </div>
+
+                <!-- Currency Rates -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>💱 Курсы валют</h3>
+                        <button class="btn-text" id="updateRatesBtn">Обновить</button>
+                    </div>
+                    <div class="rates-info">
+                        <div class="rate-row">
+                            <span>1 RUB =</span>
+                            <strong id="rateRUB">0.034</strong>
+                            <span>BYN</span>
+                        </div>
+                        <div class="rate-row">
+                            <span>1 EUR =</span>
+                            <strong id="rateEUR">3.55</strong>
+                            <span>BYN</span>
+                        </div>
+                        <div class="rate-row">
+                            <span>1 USD =</span>
+                            <strong id="rateUSD">3.25</strong>
+                            <span>BYN</span>
+                        </div>
+                        <p class="text-muted" id="ratesUpdated">Последнее обновление: -</p>
+                    </div>
+                </div>
+
+                <!-- AI Usage (Groq rate limits) -->
+                <div class="card" id="aiUsageCard" style="display: none;">
+                    <div class="card-header">
+                        <h3>🤖 Лимиты AI</h3>
+                        <button type="button" class="btn-text" id="refreshAiUsageBtn">Обновить</button>
+                    </div>
+                    <div class="ai-usage-content" id="aiUsageContent">
+                        <p class="empty-state">Загрузка...</p>
+                    </div>
+                </div>
+
+                <!-- Push Notifications -->
+                <div class="card push-card" id="pushNotificationsCard">
+                    <div class="card-header">
+                        <h3>🔔 Push-уведомления</h3>
+                        <span class="push-status-badge" id="pushStatusBadge"></span>
+                    </div>
+                    <div class="push-notifications-content">
+                        <div class="push-status-row">
+                            <p class="push-status-text" id="pushStatusText">Проверка...</p>
+                            <div class="push-status-actions">
+                                <button type="button" class="btn btn-primary btn-sm" id="enablePushBtn" style="display: none;">Включить</button>
+                                <button type="button" class="btn btn-text btn-sm" id="disablePushBtn" style="display: none;">Отключить</button>
+                            </div>
+                        </div>
+                        <div class="push-preferences" id="pushPreferences" style="display: none;">
+                            <div class="push-prefs-section">
+                                <h4 class="push-prefs-title">Какие уведомления получать</h4>
+                                <div class="push-pref-item">
+                                    <label class="push-pref-label" for="pushOverdue">
+                                        <span class="push-pref-icon">⚠️</span>
+                                        <span class="push-pref-text">Просроченные платежи</span>
+                                    </label>
+                                    <p class="push-pref-desc">Уведомление в день просрочки и позже</p>
+                                    <input type="checkbox" id="pushOverdue" checked class="push-pref-check">
+                                </div>
+                                <div class="push-pref-item">
+                                    <label class="push-pref-label" for="pushUpcoming">
+                                        <span class="push-pref-icon">📅</span>
+                                        <span class="push-pref-text">Предстоящие платежи</span>
+                                    </label>
+                                    <p class="push-pref-desc">Напоминание за N дней до срока</p>
+                                    <input type="checkbox" id="pushUpcoming" checked class="push-pref-check">
+                                </div>
+                                <div class="push-pref-item push-pref-days" id="pushDaysGroup">
+                                    <label class="push-pref-label" for="pushUpcomingDays">За сколько дней напоминать</label>
+                                    <select id="pushUpcomingDays" class="push-pref-select">
+                                        <option value="0">В день платежа</option>
+                                        <option value="1" selected>За 1 день</option>
+                                        <option value="2">За 2 дня</option>
+                                        <option value="3">За 3 дня</option>
+                                        <option value="7">За неделю</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-primary" id="savePushPrefsBtn">Сохранить настройки</button>
+                        </div>
+                        <div class="push-hint-box" id="pushHint" style="display: none;">
+                            <span class="push-hint-icon">💡</span>
+                            <p>Chrome часто не показывает push, когда вкладка приложения активна. Сверните браузер или переключитесь на другое окно.</p>
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm push-test-btn" id="testLocalNotificationBtn" style="display: none;">Проверить уведомление</button>
+                    </div>
+                </div>
+
+                <!-- Telegram Bot -->
+                <div class="card" id="telegramCard">
+                    <div class="card-header">
+                        <h3>🤖 Telegram-бот</h3>
+                        <span class="push-status-badge" id="telegramStatusBadge"></span>
+                    </div>
+                    <div id="telegramContent">
+                        <div id="telegramLinked" style="display: none;">
+                            <p class="text-success" style="margin: 0 0 0.75rem;">Telegram привязан</p>
+                            <p class="text-muted" style="font-size: 0.9em; margin: 0 0 1rem;">Отправляйте боту текст вроде «кофе 5.50» или «зп 5000» для быстрого добавления транзакций.</p>
+                            <button type="button" class="btn btn-text btn-sm" id="unlinkTelegramBtn">Отвязать</button>
+                        </div>
+                        <div id="telegramNotLinked" style="display: none;">
+                            <p class="text-muted" style="font-size: 0.9em; margin: 0 0 1rem;">Привяжите Telegram для добавления транзакций через бота. Отправляйте «кофе 5.50» — и расход создастся автоматически.</p>
+                            <div id="telegramCodeBlock" style="display: none; margin-bottom: 1rem;">
+                                <p style="margin: 0 0 0.5rem;">Ваш код привязки:</p>
+                                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                    <code id="telegramCode" style="font-size: 1.5em; font-weight: bold; letter-spacing: 0.15em; padding: 0.25rem 0.75rem; background: var(--card-bg); border-radius: 6px; border: 1px solid var(--border-color);"></code>
+                                    <span class="text-muted" id="telegramCodeTtl" style="font-size: 0.85em;"></span>
+                                </div>
+                                <p class="text-muted" style="font-size: 0.85em; margin: 0.5rem 0 0;">Отправьте боту: <code>/start КОД</code></p>
+                            </div>
+                            <button type="button" class="btn btn-primary btn-sm" id="generateTelegramCodeBtn">Получить код привязки</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Demo: In-app notifications test -->
+                <div class="card demo-toast-card" id="demoToastCard" style="display: none;">
+                    <div class="card-header">
+                        <h3>🧪 Демо: In-app уведомления</h3>
+                    </div>
+                    <p class="demo-toast-desc">Примеры уведомлений, которые видит пользователь при разных операциях</p>
+                    <div class="demo-toast-buttons">
+                        <button type="button" class="btn btn-sm demo-toast-btn" data-toast="overdue">Просроченный платёж</button>
+                        <button type="button" class="btn btn-sm demo-toast-btn" data-toast="upcoming">Предстоящий платёж</button>
+                        <button type="button" class="btn btn-sm demo-toast-btn" data-toast="operation">Операция добавлена</button>
+                        <button type="button" class="btn btn-sm demo-toast-btn" data-toast="paid">Платёж оплачен</button>
+                        <button type="button" class="btn btn-sm demo-toast-btn" data-toast="limit">Лимит превышен</button>
+                        <button type="button" class="btn btn-sm demo-toast-btn" data-toast="sync">Сверка баланса</button>
+                    </div>
+                </div>
+
+                <!-- Accounts Management -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>💳 Счета</h3>
+                        <button class="btn btn-primary btn-sm" id="openAddAccountModalBtn">+ Добавить</button>
+                    </div>
+                    <div class="accounts-list" id="accountsList">
+                        <p class="empty-state">Загрузка...</p>
+                    </div>
+                    <small class="hint">Карты и счета. Переводы между ними не влияют на общий баланс.</small>
+                </div>
+
+                <!-- Categories Management -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📁 Категории</h3>
+                        <button class="btn btn-primary btn-sm" id="openCategoryModalBtn">+ Добавить</button>
+                    </div>
+                    <div class="form-group">
+                        <input type="search" id="categorySearch" placeholder="Найти категорию..." autocomplete="off">
+                    </div>
+                    <div class="categories-list" id="categoriesList">
+                        <p class="empty-state">Загрузка...</p>
+                    </div>
+                    <div class="form-check mt-2">
+                        <input type="checkbox" id="showInactiveCategories">
+                        <label for="showInactiveCategories">Показать удалённые</label>
+                    </div>
+                </div>
+
+                <!-- Income Types -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📋 Типы доходов</h3>
+                        <button class="btn btn-primary btn-sm" id="openIncomeTypeModalBtn">+ Добавить</button>
+                    </div>
+                    <div class="income-types-list" id="incomeTypesList">
+                        <p class="empty-state">Загрузка...</p>
+                    </div>
+                    <small class="hint">Настраивайте типы операций. Расход, копилка и сверка — фиксированные.</small>
+                </div>
+
+                <!-- Tax Helper -->
+                <div class="card" id="taxHelperCard">
+                    <div class="card-header">
+                        <h3>🧾 Налоговый помощник</h3>
+                    </div>
+                    <p class="settings-hint text-muted" style="margin: 0 1rem 0.75rem; font-size: 0.9em;">
+                        Расчёт налога по доходам за период: УСН 6% (ИП) и 4% (самозанятые).
+                    </p>
+                    <div style="padding: 0 1rem 1rem;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>С месяца</label>
+                                <input type="month" id="taxDateFrom">
+                            </div>
+                            <div class="form-group">
+                                <label>По месяц</label>
+                                <input type="month" id="taxDateTo">
+                            </div>
+                            <div class="form-group" style="display:flex;align-items:flex-end;">
+                                <button type="button" class="btn btn-primary btn-sm" id="calcTaxBtn">Рассчитать</button>
+                            </div>
+                        </div>
+                        <div id="taxResult" style="display:none; margin-top: 0.75rem;">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Доходы за период</label>
+                                    <strong id="taxTotalIncome">—</strong>
+                                </div>
+                                <div class="form-group">
+                                    <label>УСН 6% (ИП)</label>
+                                    <strong id="taxUsn" style="color: var(--danger-color);">—</strong>
+                                </div>
+                                <div class="form-group">
+                                    <label>Самозанятые 4%</label>
+                                    <strong id="taxSelfEmployed" style="color: var(--danger-color);">—</strong>
+                                </div>
+                            </div>
+                            <div id="taxByMonthTable" style="margin-top: 0.5rem;"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Calendar Tab (experimental) -->
+            <section id="tab-calendar" class="tab-content" role="tabpanel" aria-label="Календарь" aria-hidden="true">
+                <div class="experimental-banner">
+                    <span class="experimental-banner__icon">🧪</span>
+                    <span>Экспериментальная функция</span>
+                </div>
+                <div class="calendar-layout">
+                    <div class="calendar-left-column">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="calendar-month-nav">
+                                    <button type="button" class="btn btn-icon btn-sm calendar-nav-btn" id="calendarPrevMonth" aria-label="Предыдущий месяц">‹</button>
+                                    <h3 id="calendarMonthTitle" class="calendar-month-title"></h3>
+                                    <button type="button" class="btn btn-icon btn-sm calendar-nav-btn" id="calendarNextMonth" aria-label="Следующий месяц">›</button>
+                                    <button type="button" class="btn btn-text btn-sm calendar-today-btn" id="calendarTodayBtn" aria-label="Перейти к сегодня">Сегодня</button>
+                                </div>
+                                <div class="calendar-header-actions">
+                                    <button type="button" class="btn btn-text btn-sm" id="calendarParserBtn">AI парсер</button>
+                                    <button type="button" class="btn btn-primary btn-sm" id="calendarAddEventBtn">+ Добавить</button>
+                                </div>
+                            </div>
+                            <div id="calendarGridContainer" class="calendar-grid-container"></div>
+                            <div id="calendarDescriptionsStrip" class="calendar-descriptions-strip" aria-live="polite"></div>
+                        </div>
+                        <div class="card calendar-parser-panel" id="calendarParserPanel" style="display:none">
+                            <div class="card-header">
+                                <h3>Распознавание текста</h3>
+                            </div>
+                            <div id="calendarParserContainer"></div>
+                        </div>
+                    </div>
+                    <div class="calendar-day-events-wrapper">
+                        <div class="card calendar-day-card">
+                            <div class="card-header">
+                                <h3>События дня</h3>
+                            </div>
+                            <div id="calendarDayEvents" class="calendar-day-events"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Notes Tab (experimental) -->
+            <section id="tab-notes" class="tab-content" role="tabpanel" aria-label="Заметки" aria-hidden="true">
+                <div class="experimental-banner">
+                    <span class="experimental-banner__icon">🧪</span>
+                    <span>Экспериментальная функция</span>
+                </div>
+                <div class="notes-layout">
+                    <div class="notes-sidebar">
+                        <div class="notes-toolbar">
+                            <input type="text" id="notesSearch" class="notes-search" placeholder="Поиск заметок..." autocomplete="off">
+                            <button type="button" class="btn btn-primary btn-sm" id="notesAddBtn">+ Новая</button>
+                        </div>
+                        <div class="notes-folders-section">
+                            <div class="notes-folders-header">
+                                <span>Папки</span>
+                                <button type="button" class="btn btn-sm btn-outline" id="notesAddFolderBtn" title="Создать папку">+ Папка</button>
+                            </div>
+                            <div id="notesFoldersList" class="notes-folders-list"></div>
+                        </div>
+                        <div class="notes-labels-section">
+                            <div class="notes-labels-header">
+                                <span>Метки</span>
+                                <button type="button" class="btn btn-sm btn-outline" id="notesAddLabelBtn" title="Создать метку">+ Метка</button>
+                            </div>
+                            <div id="notesLabelsFilter" class="notes-labels-filter"></div>
+                            <div id="notesLabelCreateForm" class="notes-label-create" style="display:none">
+                                <input type="text" id="notesLabelNameInput" placeholder="Название метки" maxlength="50">
+                                <div class="notes-label-color-row">
+                                    <span class="notes-label-color-label">Цвет:</span>
+                                    <div id="notesLabelColorPicker" class="notes-label-color-swatches"></div>
+                                </div>
+                                <div class="notes-label-create-actions">
+                                    <button type="button" class="btn btn-sm btn-primary" id="notesLabelCreateBtn">Создать</button>
+                                    <button type="button" class="btn btn-sm btn-outline" id="notesLabelCancelBtn">Отмена</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="notesListContainer" class="notes-list"></div>
+                    </div>
+                    <div id="notesDetailContainer" class="notes-detail"></div>
+                </div>
+            </section>
+
+            <!-- Bank Receipts Tab (experimental) -->
+            <section id="tab-bank-receipts" class="tab-content" role="tabpanel" aria-label="Чеки">
+                <!-- Import History -->
+                <div class="card bank-receipt-card receipt-section-collapsible" id="bankReceiptImportHistory">
+                    <div class="card-header receipt-section-toggle" data-target="bankReceiptImportHistoryBody">
+                        <h3>📋 История импортов</h3>
+                        <span class="receipt-section-arrow">▾</span>
+                    </div>
+                    <div class="receipt-section-body" id="bankReceiptImportHistoryBody" style="display:none">
+                        <div id="bankReceiptImportsList" class="receipt-imports-list">
+                            <p class="empty-state">Загрузка...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Email Parse Panel -->
+                <div class="card bank-receipt-card receipt-section-collapsible" id="emailParseCard">
+                    <div class="card-header receipt-section-toggle" data-target="emailParseBody">
+                        <h3>✉️ Парсинг письма банка (AI)</h3>
+                        <span class="receipt-section-arrow">▸</span>
+                    </div>
+                    <div class="receipt-section-body" id="emailParseBody" style="display:none">
+                        <div style="padding: 0 1rem 1rem;">
+                            <p class="text-muted" style="font-size:0.9em;margin-bottom:0.75rem;">Вставьте текст письма от банка (уведомление об операции, выписка и т.д.) — AI извлечёт транзакции.</p>
+                            <textarea id="emailParseText" rows="6" style="width:100%;resize:vertical;padding:0.5rem;font-size:0.9em;border:1px solid var(--border-color);border-radius:6px;background:var(--input-bg,var(--card-bg));color:inherit;" placeholder="Вставьте текст письма от банка..."></textarea>
+                            <div style="margin-top:0.5rem;display:flex;gap:0.5rem;align-items:center;">
+                                <button type="button" class="btn btn-primary btn-sm" id="emailParseBtn">✨ Разобрать</button>
+                                <span id="emailParseStatus" class="text-muted" style="font-size:0.9em;"></span>
+                            </div>
+                            <div id="emailParseResult" style="display:none;margin-top:0.75rem;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upload -->
+                <div class="card bank-receipt-card">
+                    <div class="card-header">
+                        <h3>🧾 Импорт из банковской выписки</h3>
+                    </div>
+                    <div id="bankReceiptDuplicateWarning" class="receipt-duplicate-warning" style="display:none"></div>
+                    <div class="bank-receipt-upload">
+                        <div class="drop-zone" id="bankReceiptDropZone">
+                            <input type="file" id="bankReceiptFileInput" accept="image/jpeg,image/png,image/webp,application/pdf,text/csv,.csv,.xlsx,.xls" multiple hidden>
+                            <p>Перетащите фото, PDF, CSV или XLSX сюда или <button type="button" class="btn btn-text" onclick="document.getElementById('bankReceiptFileInput').click()">выберите файл</button></p>
+                            <div id="bankReceiptProgress" class="receipt-progress" style="display:none">
+                                <div class="receipt-progress__bar"><div class="receipt-progress__fill" id="bankReceiptProgressFill"></div></div>
+                                <span class="receipt-progress__text" id="bankReceiptProgressText">0%</span>
+                            </div>
+                            <div id="bankReceiptImagePreview"></div>
+                        </div>
+                        <div class="receipt-upload-actions">
+                            <div class="receipt-account-select">
+                                <label for="bankReceiptAccountSelect">Счёт:</label>
+                                <select id="bankReceiptAccountSelect"></select>
+                            </div>
+                            <button type="button" class="btn btn-primary" id="bankReceiptAnalyzeBtn">Анализировать</button>
+                        </div>
+                    </div>
+                    <div class="bank-receipt-preview" id="bankReceiptPreviewContainer" style="display:none">
+                        <div class="receipt-filters" id="bankReceiptFilters">
+                            <div class="receipt-filters__row">
+                                <button type="button" class="receipt-filter-pill active" data-filter="all">Все</button>
+                                <button type="button" class="receipt-filter-pill" data-filter="new">Только новые</button>
+                                <button type="button" class="receipt-filter-pill" data-filter="exists">Уже внесено</button>
+                            </div>
+                            <div class="receipt-filters__row">
+                                <button type="button" class="receipt-filter-pill" data-filter="expense">Расходы</button>
+                                <button type="button" class="receipt-filter-pill" data-filter="income">Доходы</button>
+                                <button type="button" class="receipt-filter-pill receipt-filter-pill--warning" data-filter="no-category">⚠ Без категории</button>
+                                <span class="receipt-filters__spacer"></span>
+                                <button type="button" class="receipt-group-toggle" id="bankReceiptGroupToggle" title="Группировка">
+                                    <span class="receipt-group-toggle__icon" data-mode="date">&#128197;</span>
+                                    <span class="receipt-group-toggle__label">По дате</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="bankReceiptMatchStats" class="receipt-match-stats"></div>
+                        <!-- Quick category legend for keyboard shortcuts -->
+                        <div id="bankReceiptQuickCategories" class="receipt-quick-categories" style="display:none"></div>
+                        <div class="receipt-preview-scroll" id="bankReceiptPreviewTable"></div>
+                        <!-- Reconciliation -->
+                        <div class="receipt-reconciliation" id="bankReceiptReconciliation" style="display:none">
+                            <h4>Сверка с балансом</h4>
+                            <div class="receipt-reconciliation__stats" id="bankReceiptReconciliationStats"></div>
+                        </div>
+                        <div class="receipt-sticky-summary" id="bankReceiptStickySummary">
+                            <div class="receipt-sticky-summary__info">
+                                <span id="bankReceiptSummary">Будет создано: 0 транзакций</span>
+                                <span id="bankReceiptCategoryProgress" class="receipt-category-progress"></span>
+                            </div>
+                            <div class="receipt-sticky-summary__actions">
+                                <button type="button" class="btn btn-text btn-sm" id="bankReceiptSelectAllBtn">Выбрать все</button>
+                                <button type="button" class="btn btn-text btn-sm" id="bankReceiptDeselectAllBtn">Снять все</button>
+                                <button type="button" class="btn btn-text btn-sm" id="bankReceiptNextUncategorizedBtn" style="display:none">→ Без категории</button>
+                                <button type="button" class="btn btn-primary" id="bankReceiptApplyBtn" disabled>Применить</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    
+    <!-- Sync Balance Modal -->
+    <div id="syncModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="syncModalTitle">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h3 id="syncModalTitle">💳 Сверка баланса</h3>
+                <button class="btn-close modal-close" aria-label="Закрыть">×</button>
+            </div>
+            <form id="syncForm">
+                <p class="modal-text">Введите фактический баланс на вашем счёте для корректировки.</p>
+                <div class="form-group" id="syncAccountGroup" style="display: none;">
+                    <label>Счёт</label>
+                    <select id="syncAccountSelect">
+                        <option value="">Основной</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Текущий баланс (BYN)</label>
+                    <input type="number" id="syncBalance" step="0.01" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Сверить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Confirm Modal (для confirm/prompt — тот же подход что goalModal, syncModal) -->
+    <div id="confirmModal" class="modal" role="dialog" aria-modal="true">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h3 id="confirmModalTitle">Подтверждение</h3>
+                <button class="btn-close modal-close" aria-label="Закрыть">×</button>
+            </div>
+            <p id="confirmModalMessage" class="modal-text"></p>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" id="confirmModalCancel">Отмена</button>
+                <button type="button" class="btn btn-primary" id="confirmModalOk">Подтвердить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Goal Modal -->
+    <div id="goalModal" class="modal" role="dialog" aria-modal="true">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🎯 Цель накоплений</h3>
+                <button class="btn-close modal-close" aria-label="Закрыть">×</button>
+            </div>
+            <form id="goalForm">
+                <input type="hidden" id="goalIdInput" value="">
+                <div class="form-group">
+                    <label>Название</label>
+                    <input type="text" id="goalNameInput" placeholder="Накопить на отпуск" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Сумма</label>
+                        <input type="number" id="goalAmount" placeholder="5000" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Валюта</label>
+                        <select id="goalCurrency">
+                            <option value="BYN">BYN (Br)</option>
+                            <option value="USD">USD ($)</option>
+                            <option value="EUR">EUR (€)</option>
+                            <option value="RUB">RUB (₽)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Срок</label>
+                        <input type="date" id="goalDate" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Payment and Category modals are now generated by components -->
+
+    <!-- Calendar Event Modal -->
+    <div id="calendarEventModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="calendarEventModalTitle">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="calendarEventModalTitle">Событие</h3>
+                <button class="btn-close modal-close" aria-label="Закрыть">×</button>
+            </div>
+            <div id="calendarEventFormContainer"></div>
+        </div>
+    </div>
+
+    <!-- Note Modal (full-screen on mobile) -->
+    <div id="noteModal" class="modal note-modal" role="dialog" aria-modal="true" aria-labelledby="noteModalHeading">
+        <div class="modal-content note-modal-content">
+            <div class="modal-header">
+                <h3 id="noteModalHeading">Новая заметка</h3>
+                <button type="button" class="btn-close modal-close" id="noteModalClose" aria-label="Закрыть">×</button>
+            </div>
+            <form id="noteModalForm">
+                <input type="hidden" id="noteModalId">
+                <div class="form-group">
+                    <label for="noteModalTitle">Заголовок</label>
+                    <input type="text" id="noteModalTitle" placeholder="Заголовок заметки" required maxlength="255">
+                </div>
+                <div class="form-group">
+                    <label for="noteModalFolder">Папка</label>
+                    <select id="noteModalFolder">
+                        <option value="">Без папки</option>
+                    </select>
+                </div>
+                <div class="form-group" id="noteModalLabelsGroup">
+                    <div class="note-modal-labels-header">
+                        <label>Метки</label>
+                        <button type="button" class="btn btn-text btn-sm" id="noteModalAddLabelBtn" title="Создать метку">+ Метка</button>
+                    </div>
+                    <div id="noteModalLabels" class="note-modal-labels"></div>
+                    <div id="noteModalLabelCreateForm" class="note-modal-label-create" style="display:none">
+                        <input type="text" id="noteModalLabelNameInput" placeholder="Название метки" maxlength="50">
+                        <div class="note-modal-label-color-row">
+                            <span>Цвет:</span>
+                            <div id="noteModalLabelColorPicker" class="notes-label-color-swatches"></div>
+                        </div>
+                        <div class="note-modal-label-create-actions">
+                            <button type="button" class="btn btn-sm btn-primary" id="noteModalLabelCreateBtn">Создать</button>
+                            <button type="button" class="btn btn-sm btn-outline" id="noteModalLabelCancelBtn">Отмена</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group" id="noteModalColorGroup">
+                    <label>Цвет</label>
+                    <div id="noteModalColorPicker" class="note-color-picker"></div>
+                </div>
+                <div class="form-group note-modal-content-group">
+                    <div class="note-content-header">
+                        <label for="noteModalContent">Содержимое</label>
+                        <div class="note-format-toolbar" role="toolbar" aria-label="Форматирование">
+                            <button type="button" class="note-format-btn" data-format="code" title="Код (блок)">&#96;&#96;&#96;</button>
+                            <button type="button" class="note-format-btn" data-format="inline-code" title="Код (строка)">&lt;/&gt;</button>
+                            <button type="button" class="note-format-btn" data-format="h1" title="Заголовок 1">H1</button>
+                            <button type="button" class="note-format-btn" data-format="h2" title="Заголовок 2">H2</button>
+                            <button type="button" class="note-format-btn" data-format="h3" title="Заголовок 3">H3</button>
+                            <button type="button" class="note-format-btn" data-format="bold" title="Жирный">B</button>
+                            <button type="button" class="note-format-btn" data-format="italic" title="Курсив">I</button>
+                            <button type="button" class="note-format-btn" data-format="list" title="Список">•</button>
+                            <button type="button" class="note-format-btn" data-format="link" title="Ссылка">🔗</button>
+                            <button type="button" class="note-format-btn note-format-btn-ai" id="noteModalAiFormatBtn" title="AI форматирование">✨ AI</button>
+                        </div>
+                    </div>
+                    <textarea id="noteModalContent" rows="12" placeholder="Текст заметки..." required></textarea>
+                    <div id="noteSuggestion" class="note-suggestion" style="display:none"></div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Folder Create Modal -->
+    <div id="folderModal" class="modal" role="dialog" aria-labelledby="folderModalHeading" aria-hidden="true">
+        <div class="modal-backdrop" data-dismiss="folderModal"></div>
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h3 id="folderModalHeading">Новая папка</h3>
+                <button type="button" class="btn-close modal-close" id="folderModalClose" aria-label="Закрыть">×</button>
+            </div>
+            <form id="folderModalForm">
+                <div class="form-group">
+                    <label for="folderModalName">Название</label>
+                    <input type="text" id="folderModalName" placeholder="Название папки" maxlength="100" required>
+                </div>
+                <div class="form-group">
+                    <label for="folderModalParent">Родительская папка</label>
+                    <select id="folderModalParent">
+                        <option value="">Корневая</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Цвет</label>
+                    <div id="folderModalColorPicker" class="notes-label-color-swatches"></div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Создать</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Scripts (async — don't block page render) -->
+    <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script async src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" rel="stylesheet">
+    <script async src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+    
+    <!-- Tom Select Dark Theme Override (must be after tom-select.css) -->
+    <style>
+      .ts-wrapper .ts-control,
+      .ts-wrapper.single .ts-control {
+        background: #252542 !important;
+        border: 1px solid #2D2D4A !important;
+        border-radius: 8px !important;
+        color: #FFFFFF !important;
+        min-height: 48px !important;
+        box-shadow: none !important;
+      }
+      .ts-wrapper .ts-control:hover {
+        border-color: #6C5CE7 !important;
+      }
+      .ts-wrapper.focus .ts-control {
+        border-color: #6C5CE7 !important;
+        box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.2) !important;
+      }
+      .ts-wrapper .ts-control input {
+        color: #FFFFFF !important;
+      }
+      .ts-dropdown,
+      .ts-dropdown.single {
+        background: #1A1A2E !important;
+        border: 1px solid #2D2D4A !important;
+        border-radius: 8px !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+      }
+      .ts-dropdown .ts-dropdown-content {
+        background: #1A1A2E !important;
+      }
+      .ts-dropdown .option,
+      .ts-dropdown [data-selectable] {
+        color: #FFFFFF !important;
+        background: transparent !important;
+      }
+      .ts-dropdown .option:hover,
+      .ts-dropdown .option.active,
+      .ts-dropdown [data-selectable]:hover {
+        background: #252542 !important;
+        color: #FFFFFF !important;
+      }
+      .ts-dropdown .option.selected {
+        background: #6C5CE7 !important;
+        color: #FFFFFF !important;
+      }
+      .ts-wrapper .ts-control .item {
+        color: #FFFFFF !important;
+        background: transparent !important;
+      }
+      .ts-wrapper.single .ts-control::after {
+        border-color: #A0A0B0 transparent transparent transparent !important;
+      }
+      .ts-dropdown .no-results {
+        color: #A0A0B0 !important;
+        background: #1A1A2E !important;
+      }
+    </style>
+    
+    <script>
+        // Logout handler + admin link + back to admin (impersonation)
+        document.addEventListener('DOMContentLoaded', () => {
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', () => {
+                    localStorage.removeItem('auth_token');
+                    localStorage.removeItem('user_is_admin');
+                    localStorage.removeItem('auth_token_admin');
+                    window.location.href = '/login.html';
+                });
+            }
+            const adminLink = document.getElementById('adminLink');
+            if (adminLink && localStorage.getItem('user_is_admin') === '1') {
+                adminLink.style.display = '';
+            }
+            const backToAdminLink = document.getElementById('backToAdminLink');
+            if (backToAdminLink && localStorage.getItem('auth_token_admin')) {
+                backToAdminLink.style.display = '';
+                backToAdminLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const token = localStorage.getItem('auth_token_admin');
+                    if (token) {
+                        localStorage.setItem('auth_token', token);
+                        localStorage.removeItem('auth_token_admin');
+                        localStorage.setItem('user_is_admin', '1');
+                        window.location.href = '/admin.html';
+                    }
+                });
+            }
+        });
+    </script>
+    
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

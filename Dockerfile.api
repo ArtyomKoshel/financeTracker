@@ -1,0 +1,74 @@
+# ============================================================
+# Stage 1: Build frontend assets (Vite + TypeScript)
+# ============================================================
+FROM node:20-alpine AS frontend
+
+WORKDIR /workspace
+
+COPY web/ ./web/
+
+WORKDIR /workspace/web
+RUN npm ci --production=false
+
+# vite.config.ts sets outDir: '../api/public/static/dist'
+# from /workspace/web that resolves to /workspace/api/public/static/dist
+RUN mkdir -p /workspace/api/public/static/dist /workspace/api/public/static && npm run build
+
+# ============================================================
+# Stage 2: PHP 8.4 production image (nginx + php-fpm + supervisor)
+# ============================================================
+FROM php:8.4-fpm-alpine
+
+RUN apk add --no-cache \
+    nginx \
+    supervisor \
+    curl \
+    gettext \
+    libzip-dev \
+    libpng-dev \
+    icu-dev \
+    libpq-dev \
+    oniguruma-dev \
+    && docker-php-ext-configure intl \
+    && docker-php-ext-install -j$(nproc) pdo_pgsql mbstring zip intl opcache pcntl bcmath \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && rm -rf /tmp/pear /var/cache/apk/*
+
+RUN printf "opcache.enable=1\n\
+opcache.memory_consumption=128\n\
+opcache.interned_strings_buffer=16\n\
+opcache.max_accelerated_files=10000\n\
+opcache.validate_timestamps=0\n\
+opcache.revalidate_freq=0\n" > /usr/local/etc/php/conf.d/opcache.ini
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /var/www/html
+
+# Copy Laravel application
+COPY api/ .
+
+# Install PHP dependencies (production only)
+RUN composer install --no-dev --no-interaction --optimize-autoloader
+
+# Copy built frontend assets from stage 1
+COPY --from=frontend /workspace/api/public/static/ ./public/static/
+
+# Copy Railway-specific configs
+COPY railway/nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY railway/supervisord.conf /etc/supervisord.conf
+COPY railway/supervisor-api.conf /etc/supervisor/conf.d/api.conf
+COPY railway/entrypoint.sh /usr/local/bin/railway-entrypoint.sh
+
+RUN chmod +x /usr/local/bin/railway-entrypoint.sh
+
+# Prepare storage directories with correct ownership
+RUN mkdir -p storage/framework/{cache/data,sessions,views} storage/logs bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
+
+EXPOSE 8080
+
+ENTRYPOINT ["railway-entrypoint.sh"]
+CMD ["supervisord", "-n", "-c", "/etc/supervisord.conf"]

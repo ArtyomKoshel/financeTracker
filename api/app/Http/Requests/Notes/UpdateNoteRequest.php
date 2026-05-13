@@ -1,0 +1,27 @@
+<?php
+
+namespace App\Http\Requests\Notes;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class UpdateNoteRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    /** @return array<string, mixed> */
+    public function rules(): array
+    {
+        return [
+            'title' => ['sometimes', 'string', 'max:255'],
+            'content' => ['sometimes', 'string', 'max:50000'],
+            'folder_id' => ['nullable', 'integer', 'exists:note_folders,id'],
+            'is_pinned' => ['sometimes', 'boolean'],
+            'color' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'label_ids' => ['nullable', 'array', 'max:20'],
+            'label_ids.*' => ['integer', 'exists:note_labels,id'],
+        ];
+    }
+}

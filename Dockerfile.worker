@@ -1,0 +1,45 @@
+# ============================================================
+# Worker service: Reverb WebSocket + Scheduler + Telegram polling
+# ============================================================
+FROM php:8.4-fpm-alpine
+
+RUN apk add --no-cache \
+    supervisor \
+    curl \
+    libzip-dev \
+    libpng-dev \
+    icu-dev \
+    libpq-dev \
+    oniguruma-dev \
+    && docker-php-ext-configure intl \
+    && docker-php-ext-install -j$(nproc) pdo_pgsql mbstring zip intl opcache pcntl bcmath \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && rm -rf /tmp/pear /var/cache/apk/*
+
+RUN printf "opcache.enable=1\n\
+opcache.memory_consumption=128\n\
+opcache.interned_strings_buffer=16\n\
+opcache.max_accelerated_files=10000\n\
+opcache.validate_timestamps=0\n" > /usr/local/etc/php/conf.d/opcache.ini
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /var/www/html
+
+COPY api/ .
+
+RUN composer install --no-dev --no-interaction --optimize-autoloader
+
+COPY railway/supervisord.conf /etc/supervisord.conf
+COPY railway/supervisor-worker.conf /etc/supervisor/conf.d/worker.conf
+COPY railway/entrypoint-worker.sh /usr/local/bin/railway-entrypoint-worker.sh
+
+RUN chmod +x /usr/local/bin/railway-entrypoint-worker.sh
+
+RUN mkdir -p storage/framework/{cache/data,sessions,views} storage/logs bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
+
+ENTRYPOINT ["railway-entrypoint-worker.sh"]
+CMD ["supervisord", "-n", "-c", "/etc/supervisord.conf"]

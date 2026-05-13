@@ -1,0 +1,8 @@
+parameters:
+    paths:
+        - app
+    level: 5
+    ignoreErrors:
+        - '#Call to an undefined method Illuminate\\Database\\Eloquent\\Builder::#'
+    excludePaths:
+        - app/Console/Commands/MigrateFromGo.php

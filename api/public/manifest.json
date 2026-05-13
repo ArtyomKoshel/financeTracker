@@ -1,0 +1,11 @@
+{
+  "name": "Finance Tracker",
+  "short_name": "Finance",
+  "description": "Персональный учёт финансов",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F0F1A",
+  "theme_color": "#6C5CE7",
+  "orientation": "portrait-primary",
+  "lang": "ru"
+}

@@ -1,0 +1,38 @@
+# PHP dependencies
+api/vendor/
+api/node_modules/
+
+# Frontend dependencies
+web/node_modules/
+
+# Built frontend assets (rebuilt by Docker)
+api/public/static/dist/
+api/public/static/style.css
+api/public/hot
+
+# Secrets
+api/.env
+api/.env.backup
+api/storage/*.key
+
+# Laravel cache
+api/bootstrap/cache/*.php
+api/.phpunit.result.cache
+
+# Logs
+api/storage/logs/*.log
+
+# Local data
+data/
+
+# OS / IDE
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Binary
+finance-tracker.exe
+
+# Temp
+*.bak

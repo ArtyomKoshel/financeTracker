@@ -1,0 +1,2460 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finance Tracker</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="logo">Finance Tracker</h1>
+            <button class="btn btn-icon" onclick="switchTab('settings')" title="Настройки">⚙️</button>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="tabs">
+            <button class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">
+                <span class="tab-icon">🏠</span>
+                <span class="tab-label">Главная</span>
+            </button>
+            <button class="tab" data-tab="operations" onclick="switchTab('operations')">
+                <span class="tab-icon">💳</span>
+                <span class="tab-label">Операции</span>
+            </button>
+            <button class="tab" data-tab="analytics" onclick="switchTab('analytics')">
+                <span class="tab-icon">📊</span>
+                <span class="tab-label">Аналитика</span>
+            </button>
+            <button class="tab" data-tab="plans" onclick="switchTab('plans')">
+                <span class="tab-icon">📋</span>
+                <span class="tab-label">Планы</span>
+            </button>
+            <button class="tab" data-tab="settings" onclick="switchTab('settings')">
+                <span class="tab-icon">⚙️</span>
+                <span class="tab-label">Настройки</span>
+            </button>
+        </nav>
+
+        <!-- Tab Content -->
+        <main class="content">
+            <!-- Dashboard Tab -->
+            <section id="tab-dashboard" class="tab-content active">
+                <!-- 1. Balance Card -->
+                <div class="balance-card">
+                    <div class="balance-header">
+                        <span class="balance-label">Баланс</span>
+                        <button class="btn-text" onclick="openSyncModal()">Сверить</button>
+                    </div>
+                    <div class="balance-amount" id="balanceAmount">0 Br</div>
+                    <div class="balance-updated" id="balanceUpdated"></div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <button class="quick-btn income" onclick="quickAddIncome()">
+                        <span class="quick-icon">+</span>
+                        <span>Доход</span>
+                    </button>
+                    <button class="quick-btn expense" onclick="quickAddExpense()">
+                        <span class="quick-icon">−</span>
+                        <span>Расход</span>
+                    </button>
+                    <button class="quick-btn savings" onclick="quickAddSavings()">
+                        <span class="quick-icon">🏦</span>
+                        <span>Копилка</span>
+                    </button>
+                </div>
+
+                <!-- 3. Overdue Payments Alert -->
+                <div class="card alert-card" id="overdueCard" style="display: none;">
+                    <div class="card-header">
+                        <h3>⚠️ Просроченные платежи</h3>
+                    </div>
+                    <div class="alert-message">
+                        Есть неоплаченные платежи. Проверьте и отметьте оплаченные.
+                    </div>
+                    <div class="payments-list overdue-list" id="overduePayments"></div>
+                </div>
+
+                <!-- 3. Upcoming Payments -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📅 Предстоящие платежи</h3>
+                        <button class="btn-text" onclick="switchTab('plans')">Все</button>
+                    </div>
+                    <div class="payments-list" id="upcomingPayments">
+                        <p class="empty-state">Нет предстоящих платежей</p>
+                    </div>
+                </div>
+
+                <!-- 4. Cashflow Recommendations -->
+                <div class="card recommendations-card" id="dashboardRecommendations">
+                    <div class="card-header">
+                        <h3>Cashflow</h3>
+                        <button class="btn-text" onclick="loadDashboardRecommendations()">Обновить</button>
+                    </div>
+                    <div class="recommendations-content" id="dashboardRecContent">
+                        <p class="empty-state">Загрузка...</p>
+                    </div>
+                </div>
+
+                <!-- 5. Month Summary -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📈 Этот месяц</h3>
+                    </div>
+                    <div class="month-stats">
+                        <div class="month-stat income">
+                            <span class="stat-icon">↓</span>
+                            <div class="stat-info">
+                                <span class="stat-label">Доходы</span>
+                                <span class="stat-value" id="monthIncome">0 Br</span>
+                            </div>
+                        </div>
+                        <div class="month-stat expense">
+                            <span class="stat-icon">↑</span>
+                            <div class="stat-info">
+                                <span class="stat-label">Расходы</span>
+                                <span class="stat-value" id="monthExpenses">0 Br</span>
+                            </div>
+                        </div>
+                        <div class="month-stat savings">
+                            <span class="stat-icon">🏦</span>
+                            <div class="stat-info">
+                                <span class="stat-label">Накоплено</span>
+                                <span class="stat-value" id="monthSavings">0 Br</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. Recent Transactions -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📋 Последние операции</h3>
+                        <button class="btn-text" onclick="switchTab('operations')">Все</button>
+                    </div>
+                    <div class="transactions-list" id="recentTransactions">
+                        <p class="empty-state">Нет операций</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Operations Tab -->
+            <section id="tab-operations" class="tab-content">
+                <!-- Add Transaction Form -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>➕ Новая операция</h3>
+                    </div>
+                    <form id="transactionForm" class="form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Тип</label>
+                                <select id="txType" onchange="onTxTypeChange()">
+                                    <optgroup label="Доходы">
+                                        <option value="salary">💰 Зарплата</option>
+                                        <option value="advance">💵 Аванс</option>
+                                        <option value="bonus">🎁 Премия</option>
+                                        <option value="early_pay">⚡ Досрочная выплата</option>
+                                        <option value="other">📦 Другой доход</option>
+                                    </optgroup>
+                                    <optgroup label="Расходы">
+                                        <option value="expense">🛒 Расход</option>
+                                    </optgroup>
+                                    <optgroup label="Накопления">
+                                        <option value="savings">🏦 В копилку</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Дата</label>
+                                <input type="date" id="txDate" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group category-select" id="categoryGroup" style="display: none;">
+                            <label>Категория</label>
+                            <select id="txCategory">
+                                <option value="">Без категории</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" id="recurringPaymentGroup" style="display: none;">
+                            <label>Плановый платёж</label>
+                            <select id="txRecurringPayment" onchange="onRecurringPaymentSelect()">
+                                <option value="">— Обычный расход —</option>
+                            </select>
+                            <small class="hint">Выберите если это оплата планового платежа</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Сумма</label>
+                            <div class="input-with-currency">
+                                <input type="number" id="txAmount" placeholder="0" step="0.01" required>
+                                <select id="txCurrency" onchange="updateConversionHint()">
+                                    <option value="BYN">BYN</option>
+                                    <option value="RUB">RUB</option>
+                                    <option value="EUR">EUR</option>
+                                    <option value="USD">USD</option>
+                                </select>
+                            </div>
+                            <small id="conversionHint" class="hint"></small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Описание</label>
+                            <input type="text" id="txDescription" placeholder="Комментарий (опционально)">
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-block">Добавить</button>
+                    </form>
+                </div>
+
+                <!-- Filters -->
+                <div class="filters">
+                    <div class="filter-period">
+                        <select id="filterYear" onchange="onYearChange()">
+                        </select>
+                        <select id="filterMonth" onchange="loadTransactions()">
+                        </select>
+                    </div>
+                    <select id="filterType" onchange="loadTransactions()">
+                        <option value="">Все типы</option>
+                        <option value="income">Доходы</option>
+                        <option value="expense">Расходы</option>
+                        <option value="savings">Накопления</option>
+                    </select>
+                    <input type="text" id="filterSearch" placeholder="Поиск..." oninput="debounceSearch()">
+                </div>
+
+                <!-- Transactions List -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>История операций</h3>
+                        <div class="header-actions">
+                            <span id="transactionsCount">0</span>
+                            <button class="btn-small" onclick="document.getElementById('csvImportInput').click()" title="Импорт CSV">📤</button>
+                            <button class="btn-small" onclick="exportTransactionsCSV()" title="Экспорт в CSV">📥</button>
+                            <input type="file" id="csvImportInput" accept=".csv" style="display:none" onchange="importCSV(event)">
+                        </div>
+                    </div>
+                    <div class="transactions-list" id="allTransactions">
+                        <p class="empty-state">Загрузка...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Analytics Tab -->
+            <section id="tab-analytics" class="tab-content">
+                <!-- Month Selector -->
+                <div class="analytics-header">
+                    <button class="btn-icon" onclick="changeAnalyticsMonth(-1)" aria-label="Предыдущий месяц">←</button>
+                    <span id="analyticsMonth">Январь 2026</span>
+                    <button class="btn-icon" onclick="changeAnalyticsMonth(1)" aria-label="Следующий месяц">→</button>
+                </div>
+
+                <!-- Summary Cards -->
+                <div class="analytics-summary">
+                    <div class="summary-card income">
+                        <span class="summary-label">Доходы</span>
+                        <span class="summary-value" id="analyticsIncome">0 Br</span>
+                    </div>
+                    <div class="summary-card expense">
+                        <span class="summary-label">Расходы</span>
+                        <span class="summary-value" id="analyticsExpenses">0 Br</span>
+                    </div>
+                    <div class="summary-card balance">
+                        <span class="summary-label">Баланс</span>
+                        <span class="summary-value" id="analyticsBalance">0 Br</span>
+                    </div>
+                </div>
+
+                <!-- Expenses by Category -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🥧 Расходы по категориям</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                    <div class="category-legend" id="categoryLegend"></div>
+                </div>
+
+                <!-- Monthly Trend -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📈 Динамика</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Plans Tab -->
+            <section id="tab-plans" class="tab-content">
+                <!-- Goal Section -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🎯 Цель накоплений</h3>
+                        <button class="btn-text" onclick="openGoalModal()">Изменить</button>
+                    </div>
+                    <div id="planGoalContent">
+                        <p class="empty-state">Цель не установлена</p>
+                    </div>
+                </div>
+
+                <!-- Monthly Budget -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>💰 Бюджет на месяц</h3>
+                    </div>
+                    <div class="budget-overview" id="budgetOverview">
+                        <div class="budget-row">
+                            <span>Доход</span>
+                            <span class="amount positive" id="budgetIncome">0 Br</span>
+                        </div>
+                        <div class="budget-row">
+                            <span>Обязательные платежи</span>
+                            <span class="amount negative" id="budgetPayments">0 Br</span>
+                        </div>
+                        <div class="budget-row">
+                            <span>Накоплено</span>
+                            <span class="amount neutral" id="budgetSavings">0 Br</span>
+                        </div>
+                        <div class="budget-row">
+                            <span>Расходы</span>
+                            <span class="amount negative" id="budgetExpenses">0 Br</span>
+                        </div>
+                        <div class="budget-row total">
+                            <span>Остаток</span>
+                            <span class="amount" id="budgetRemaining">0 Br</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recurring Payments -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📅 Плановые платежи</h3>
+                        <button class="btn-text" onclick="openAddPaymentModal()">+ Добавить</button>
+                    </div>
+                    <div class="payments-list" id="recurringPayments">
+                        <p class="empty-state">Нет плановых платежей</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings Tab -->
+            <section id="tab-settings" class="tab-content">
+                <!-- Categories Management -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📁 Категории</h3>
+                        <button class="btn btn-primary btn-sm" onclick="openCategoryModal()">+ Добавить</button>
+                    </div>
+                    <div class="categories-list" id="categoriesList">
+                        <p class="empty-state">Загрузка...</p>
+                    </div>
+                    <div class="form-check mt-2">
+                        <input type="checkbox" id="showInactiveCategories" onchange="loadCategoriesForSettings()">
+                        <label for="showInactiveCategories">Показать удалённые</label>
+                    </div>
+                </div>
+
+                <!-- Salary Settings -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>💼 Настройки зарплаты</h3>
+                    </div>
+                    <form id="salarySettingsForm" onsubmit="saveSalarySettings(event)">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Оклад (RUB)</label>
+                                <input type="number" id="settGrossSalary2" placeholder="320000">
+                            </div>
+                            <div class="form-group">
+                                <label>Ожидаемый аванс (RUB)</label>
+                                <input type="number" id="settAdvance2" placeholder="160650">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>День аванса</label>
+                                <input type="number" id="settAdvanceDay" min="1" max="31" placeholder="30">
+                            </div>
+                            <div class="form-group">
+                                <label>День зарплаты</label>
+                                <input type="number" id="settSalaryDay" min="1" max="31" placeholder="15">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>% накоплений</label>
+                                <input type="number" id="settSavingsPercent" min="0" max="100" placeholder="20">
+                                <small class="hint">Рекомендуемый процент от свободных средств для откладывания</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Минимум на жизнь (BYN)</label>
+                                <input type="number" id="settMinLiving" placeholder="1500">
+                                <small class="hint">Минимальный бюджет на месяц</small>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Сохранить настройки</button>
+                    </form>
+                </div>
+
+                <!-- Currency Rates -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>💱 Курсы валют</h3>
+                        <button class="btn-text" onclick="updateRates()">Обновить</button>
+                    </div>
+                    <div class="rates-info">
+                        <div class="rate-row">
+                            <span>1 RUB =</span>
+                            <strong id="rateRub">0.034</strong>
+                            <span>BYN</span>
+                        </div>
+                        <div class="rate-row">
+                            <span>1 EUR =</span>
+                            <strong id="rateEur">3.55</strong>
+                            <span>BYN</span>
+                        </div>
+                        <div class="rate-row">
+                            <span>1 USD =</span>
+                            <strong id="rateUsd">3.25</strong>
+                            <span>BYN</span>
+                        </div>
+                        <p class="text-muted" id="ratesUpdated">Последнее обновление: -</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    
+    <!-- Cashflow Budget Modal -->
+    <div id="recommendationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Cashflow</h3>
+                <button class="btn-close" onclick="closeModal('recommendationModal')" aria-label="Закрыть">×</button>
+            </div>
+            <div class="recommendation-content">
+                <div class="rec-income-header" id="recIncomeHeader">До ЗП 15.02 (16 дн.)</div>
+                
+                <div class="rec-summary">
+                    <div class="rec-row">
+                        <span class="rec-label">Баланс:</span>
+                        <span class="rec-value" id="recBalance">0 BYN</span>
+                    </div>
+                    <div class="rec-row">
+                        <span class="rec-label">На жизнь:</span>
+                        <span class="rec-value" id="recMinLiving">0 BYN</span>
+                    </div>
+                </div>
+                
+                <div class="rec-section">
+                    <h4>Платежи до дохода:</h4>
+                    <div id="recUnpaidList" class="rec-payments-list"></div>
+                    <div class="rec-row total">
+                        <span class="rec-label">Итого платежей:</span>
+                        <span class="rec-value negative" id="recTotalUnpaid">0 BYN</span>
+                    </div>
+                </div>
+                
+                <div class="rec-section">
+                    <div class="rec-row highlight">
+                        <span class="rec-label">Свободно:</span>
+                        <span class="rec-value" id="recFreeFunds">0 BYN</span>
+                    </div>
+                </div>
+                
+                <div class="rec-recommendation" id="recMessage"></div>
+                
+                <div class="rec-actions">
+                    <button class="btn btn-secondary" onclick="closeModal('recommendationModal')">Закрыть</button>
+                    <button class="btn btn-primary" id="recAddSavingsBtn" onclick="addRecommendedSavings()">
+                        Отложить в копилку
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sync Balance Modal -->
+    <div id="syncModal" class="modal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h3>💳 Сверка баланса</h3>
+                <button class="btn-close" onclick="closeModal('syncModal')" aria-label="Закрыть">×</button>
+            </div>
+            <form id="syncForm">
+                <p class="modal-text">Введите фактический баланс на вашем счёте для корректировки.</p>
+                <div class="form-group">
+                    <label>Текущий баланс (BYN)</label>
+                    <input type="number" id="syncBalance" step="0.01" required>
+                </div>
+                <div id="syncDiff" class="sync-diff" style="display: none;"></div>
+                <button type="submit" class="btn btn-primary btn-block">Сверить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Goal Modal -->
+    <div id="goalModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🎯 Цель накоплений</h3>
+                <button class="btn-close" onclick="closeModal('goalModal')" aria-label="Закрыть">×</button>
+            </div>
+            <form id="goalForm">
+                <div class="form-group">
+                    <label>Название</label>
+                    <input type="text" id="goalNameInput" placeholder="Накопить $15000" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Сумма (USD)</label>
+                        <input type="number" id="goalAmount" placeholder="15000" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Срок</label>
+                        <input type="date" id="goalDate" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Payment Modal -->
+    <div id="paymentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📅 Новый плановый платёж</h3>
+                <button class="btn-close" onclick="closeModal('paymentModal')" aria-label="Закрыть">×</button>
+            </div>
+            <form id="paymentForm">
+                <div class="form-group">
+                    <label>Название</label>
+                    <input type="text" id="payName" placeholder="Аренда квартиры" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Сумма</label>
+                        <div class="input-with-currency">
+                            <input type="number" id="payAmount" step="0.01" required>
+                            <select id="payCurrency">
+                                <option value="BYN">BYN</option>
+                                <option value="RUB">RUB</option>
+                                <option value="EUR">EUR</option>
+                                <option value="USD">USD</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>День месяца</label>
+                        <input type="number" id="payDay" min="1" max="31" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Тип</label>
+                        <select id="payCategory">
+                            <option value="essential">Обязательный</option>
+                            <option value="optional">Опциональный</option>
+                        </select>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="payVariable">
+                            Сумма примерная
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Категория расходов</label>
+                    <select id="payCategoryId">
+                        <option value="">— Без категории —</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Добавить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Quick Add Modal -->
+    <div id="quickAddModal" class="modal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h3 id="quickAddTitle">Быстрое добавление</h3>
+                <button class="btn-close" onclick="closeModal('quickAddModal')">×</button>
+            </div>
+            <form id="quickAddForm">
+                <input type="hidden" id="quickType">
+                
+                <div class="form-group category-select" id="quickCategoryGroup" style="display: none;">
+                    <label>Категория</label>
+                    <select id="quickCategory">
+                        <option value="">Без категории</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Сумма</label>
+                    <div class="input-with-currency">
+                        <input type="number" id="quickAmount" step="0.01" required autofocus>
+                        <select id="quickCurrency">
+                            <option value="BYN">BYN</option>
+                            <option value="RUB">RUB</option>
+                            <option value="EUR">EUR</option>
+                            <option value="USD">USD</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Описание</label>
+                    <input type="text" id="quickDescription" placeholder="Опционально">
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block">Добавить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Category Modal -->
+    <div id="categoryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="categoryModalTitle">Добавить категорию</h3>
+                <button class="btn-close" onclick="closeModal('categoryModal')" aria-label="Закрыть">&times;</button>
+            </div>
+            <form id="categoryForm" onsubmit="saveCategory(event)">
+                <input type="hidden" id="categoryId">
+                <div class="form-group">
+                    <label>Название</label>
+                    <input type="text" id="categoryName" required>
+                </div>
+                <div class="form-group">
+                    <label>Родительская категория</label>
+                    <select id="categoryParent">
+                        <option value="">-- Корневая категория --</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Иконка</label>
+                        <div class="emoji-picker-wrapper">
+                            <button type="button" class="emoji-picker-btn" id="categoryIconBtn" onclick="toggleEmojiPicker()">
+                                <span id="categoryIconPreview">📦</span>
+                            </button>
+                            <input type="hidden" id="categoryIcon" value="">
+                            <div class="emoji-picker" id="emojiPicker">
+                                <div class="emoji-picker-header">Выберите иконку</div>
+                                <div class="emoji-grid" id="emojiGrid"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Цвет</label>
+                        <input type="color" id="categoryColor" value="#6C5CE7">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+        // ==================== Global State ====================
+        let categories = [];
+        let currencyRates = { RUB: 0.034, EUR: 3.55, USD: 3.25, BYN: 1 };
+        let currentAnalyticsMonth = new Date().toISOString().slice(0, 7);
+        let categoryChart = null;
+        let trendChart = null;
+        let wsConnection = null;
+        let wsReconnectTimeout = null;
+
+        // ==================== WebSocket ====================
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            try {
+                wsConnection = new WebSocket(wsUrl);
+                
+                wsConnection.onopen = () => {
+                    console.log('WebSocket connected');
+                    if (wsReconnectTimeout) {
+                        clearTimeout(wsReconnectTimeout);
+                        wsReconnectTimeout = null;
+                    }
+                };
+                
+                wsConnection.onmessage = (event) => {
+                    try {
+                        const messages = event.data.split('\n');
+                        messages.forEach(msgStr => {
+                            if (!msgStr.trim()) return;
+                            const msg = JSON.parse(msgStr);
+                            handleWSMessage(msg);
+                        });
+                    } catch (e) {
+                        console.error('WS message parse error:', e);
+                    }
+                };
+                
+                wsConnection.onclose = () => {
+                    console.log('WebSocket disconnected, reconnecting...');
+                    wsReconnectTimeout = setTimeout(connectWebSocket, 3000);
+                };
+                
+                wsConnection.onerror = (err) => {
+                    console.error('WebSocket error:', err);
+                };
+            } catch (e) {
+                console.error('WebSocket connection failed:', e);
+                wsReconnectTimeout = setTimeout(connectWebSocket, 5000);
+            }
+        }
+        
+        function handleWSMessage(msg) {
+            if (msg.type === 'update') {
+                const target = msg.data?.target;
+                console.log('WS update:', target);
+                
+                // Обновляем соответствующие данные
+                switch (target) {
+                    case 'transactions':
+                        loadTransactions();
+                        break;
+                    case 'balance':
+                        loadBalance();
+                        break;
+                    case 'dashboard':
+                        loadDashboard();
+                        break;
+                    case 'categories':
+                        loadCategories();
+                        if (document.getElementById('tab-settings').classList.contains('active')) {
+                            loadCategoriesForSettings();
+                        }
+                        break;
+                    case 'payments':
+                        loadPlans();
+                        break;
+                    default:
+                        // Обновляем всё
+                        loadDashboard();
+                        loadTransactions();
+                }
+            }
+        }
+        
+        async function loadBalance() {
+            try {
+                const account = await api('balance');
+                if (account) {
+                    document.getElementById('balanceAmount').textContent = formatMoney(account.balance);
+                    if (account.last_sync_date) {
+                        document.getElementById('balanceUpdated').textContent = 'Сверка: ' + account.last_sync_date;
+                    }
+                }
+            } catch (e) {
+                console.error('Load balance error:', e);
+            }
+        }
+
+        // ==================== Toast Notifications ====================
+        function showToast(message, type = 'info', duration = 4000) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `
+                <span class="toast-message">${message}</span>
+                <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+            `;
+            container.appendChild(toast);
+            
+            // Auto-remove after duration
+            setTimeout(() => {
+                toast.classList.add('toast-hiding');
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        // ==================== API Helper ====================
+        async function api(endpoint, method = 'GET', data = null) {
+            const options = { method, headers: { 'Content-Type': 'application/json' } };
+            if (data) options.body = JSON.stringify(data);
+            
+            let res;
+            try {
+                res = await fetch('/api/' + endpoint, options);
+            } catch (networkError) {
+                showToast('Ошибка сети. Проверьте подключение.', 'error');
+                throw new Error('Network error');
+            }
+            
+            // Check HTTP status
+            if (!res.ok) {
+                const errorMsg = `HTTP Error: ${res.status} ${res.statusText}`;
+                showToast(errorMsg, 'error');
+                throw new Error(errorMsg);
+            }
+            
+            let json;
+            try {
+                json = await res.json();
+            } catch (parseError) {
+                showToast('Ошибка разбора ответа сервера', 'error');
+                throw new Error('JSON parse error');
+            }
+            
+            if (!json.success) {
+                showToast(json.error || 'Неизвестная ошибка', 'error');
+                throw new Error(json.error);
+            }
+            return json.data;
+        }
+
+        // ==================== Formatting ====================
+        function formatMoney(amount, currency = 'BYN') {
+            const symbols = { BYN: 'Br', RUB: '₽', EUR: '€', USD: '$' };
+            const symbol = symbols[currency] || currency;
+            return amount.toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' ' + symbol;
+        }
+
+        function formatDate(dateStr) {
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+        }
+
+        function getMonthName(monthStr) {
+            const months = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+                           'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+            const [year, month] = monthStr.split('-');
+            return months[parseInt(month) - 1] + ' ' + year;
+        }
+
+        // ==================== Tab Navigation ====================
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+            document.getElementById('tab-' + tabId).classList.add('active');
+
+            // Load tab-specific data
+            if (tabId === 'dashboard') loadDashboard();
+            else if (tabId === 'operations') {
+                loadTransactions();
+                // Load recurring payments for expense form
+                if (document.getElementById('txType').value === 'expense') {
+                    loadRecurringPaymentsForSelect();
+                }
+            }
+            else if (tabId === 'analytics') loadAnalytics();
+            else if (tabId === 'plans') loadPlans();
+            else if (tabId === 'settings') loadSettingsData();
+        }
+
+        // ==================== Dashboard ====================
+        async function loadDashboard() {
+            try {
+                // Load balance
+                const account = await api('balance');
+                document.getElementById('balanceAmount').textContent = formatMoney(account.balance);
+                if (account.last_sync_date) {
+                    document.getElementById('balanceUpdated').textContent = 'Сверка: ' + account.last_sync_date;
+                }
+
+                // Load dashboard data
+                const data = await api('dashboard');
+                
+                // Month summary
+                document.getElementById('monthIncome').textContent = formatMoney(data.current_month.total_income);
+                document.getElementById('monthExpenses').textContent = formatMoney(data.current_month.expenses);
+                document.getElementById('monthSavings').textContent = formatMoney(data.current_month.total_saved);
+
+                // Recent transactions
+                renderTransactions(data.recent_transactions?.slice(0, 5) || [], 'recentTransactions');
+
+                // Payments - split into overdue and upcoming
+                const reminders = await api('payments/reminders') || [];
+                const unpaid = reminders.filter(r => !r.is_paid);
+                const overdue = unpaid.filter(r => r.is_overdue);
+                const upcoming = unpaid.filter(r => !r.is_overdue);
+
+                // Show overdue alert
+                const overdueCard = document.getElementById('overdueCard');
+                if (overdue.length > 0) {
+                    overdueCard.style.display = 'block';
+                    renderOverduePayments(overdue);
+                } else {
+                    overdueCard.style.display = 'none';
+                }
+
+                // Show upcoming
+                renderUpcomingPayments(upcoming.slice(0, 3));
+
+                // Load recommendations
+                loadDashboardRecommendations();
+
+            } catch (e) {
+                console.error('Dashboard load error:', e);
+            }
+        }
+
+        function renderOverduePayments(payments) {
+            const container = document.getElementById('overduePayments');
+            container.innerHTML = payments.map(p => `
+                <div class="payment-item overdue">
+                    <div class="payment-info">
+                        <span class="payment-name">${p.payment.name}</span>
+                        <span class="payment-date overdue-date">Просрочен ${Math.abs(p.days_until)} дн. назад (до ${p.payment.day_of_month} числа)</span>
+                    </div>
+                    <div class="payment-actions">
+                        <span class="payment-amount">${p.payment.is_variable ? '~' : ''}${formatMoney(p.payment.amount)}</span>
+                        <button class="btn-small btn-success" onclick="markPaymentPaidFromDashboard(${p.payment.id}, ${p.payment.amount}, ${p.payment.is_variable}, '${p.payment.name}')">
+                            ✓ Оплачено
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderUpcomingPayments(payments) {
+            const container = document.getElementById('upcomingPayments');
+            if (!payments || payments.length === 0) {
+                container.innerHTML = '<p class="empty-state">Все платежи оплачены</p>';
+                return;
+            }
+
+            container.innerHTML = payments.map(p => {
+                const monthLabel = p.is_next_month ? getMonthName(p.month) : '';
+                const dateLabel = p.days_until === 0 ? 'Сегодня' : 
+                                  p.is_next_month ? `${monthLabel}, ${p.payment.day_of_month} числа` :
+                                  `через ${p.days_until} дн.`;
+                
+                return `
+                    <div class="payment-item ${p.is_next_month ? 'next-month' : ''}">
+                        <div class="payment-info">
+                            <span class="payment-name">${p.payment.name}</span>
+                            <span class="payment-date">${dateLabel}</span>
+                        </div>
+                        <div class="payment-actions">
+                            <span class="payment-amount">${p.payment.is_variable ? '~' : ''}${formatMoney(p.payment.amount)}</span>
+                            ${!p.is_next_month ? `<button class="btn-small" onclick="markPaymentPaidFromDashboard(${p.payment.id}, ${p.payment.amount}, ${p.payment.is_variable}, '${p.payment.name}')">✓</button>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function markPaymentPaidFromDashboard(paymentId, amount, isVariable, paymentName) {
+            let finalAmount = amount;
+            
+            if (isVariable) {
+                const input = prompt('Введите фактическую сумму платежа:', amount.toFixed(2));
+                if (input === null) return;
+                finalAmount = parseFloat(input);
+                if (isNaN(finalAmount) || finalAmount <= 0) {
+                    showToast('Некорректная сумма', 'error');
+                    return;
+                }
+            }
+
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                // Создаём транзакцию-расход с привязкой к плановому платежу
+                await api('transactions', 'POST', {
+                    date: today,
+                    amount: finalAmount,
+                    currency: 'BYN',
+                    type: 'expense',
+                    recurring_payment_id: paymentId,
+                    description: paymentName || 'Плановый платёж'
+                });
+                loadDashboard();
+            } catch (e) {
+                showToast('Ошибка: ' + e.message, 'error');
+            }
+        }
+
+        // ==================== Operations ====================
+        let searchDebounceTimer = null;
+        let currentTransactions = [];
+        
+        function debounceSearch() {
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(loadTransactions, 300);
+        }
+        
+        async function loadTransactions() {
+            const container = document.getElementById('allTransactions');
+            const countEl = document.getElementById('transactionsCount');
+            
+            // Show loading state
+            container.innerHTML = '<p class="empty-state">Загрузка...</p>';
+            countEl.textContent = '...';
+            
+            try {
+                const year = document.getElementById('filterYear').value;
+                const month = document.getElementById('filterMonth').value;
+                const filterType = document.getElementById('filterType').value;
+                const searchQuery = (document.getElementById('filterSearch')?.value || '').toLowerCase().trim();
+                
+                // Загрузка транзакций в зависимости от выбранного периода
+                let transactions;
+                
+                if (year === 'all') {
+                    // Все операции за все время
+                    transactions = await api('transactions');
+                } else if (month === 'all') {
+                    // Все операции за выбранный год (фильтруем на клиенте)
+                    transactions = await api('transactions');
+                    transactions = transactions.filter(t => t.date && t.date.startsWith(year));
+                } else {
+                    // Конкретный месяц
+                    const monthStr = String(parseInt(month) + 1).padStart(2, '0');
+                    const monthParam = `${year}-${monthStr}`;
+                    transactions = await api('transactions/month?month=' + monthParam);
+                }
+                
+                // Handle null/undefined response
+                if (!transactions) transactions = [];
+                
+                // Filter by type
+                if (filterType === 'income') {
+                    transactions = transactions.filter(t => !['expense', 'savings'].includes(t.type));
+                } else if (filterType === 'expense') {
+                    transactions = transactions.filter(t => t.type === 'expense');
+                } else if (filterType === 'savings') {
+                    transactions = transactions.filter(t => t.type === 'savings');
+                }
+                
+                // Filter by search query
+                if (searchQuery) {
+                    transactions = transactions.filter(t => 
+                        (t.description && t.description.toLowerCase().includes(searchQuery)) ||
+                        (t.category_name && t.category_name.toLowerCase().includes(searchQuery))
+                    );
+                }
+                
+                // Store for export
+                currentTransactions = transactions;
+
+                countEl.textContent = transactions.length + ' записей';
+                renderTransactions(transactions, 'allTransactions');
+            } catch (e) {
+                console.error('Load transactions error:', e);
+                container.innerHTML = '<p class="empty-state error">Ошибка загрузки: ' + e.message + '</p>';
+                countEl.textContent = 'Ошибка';
+            }
+        }
+        
+        function exportTransactionsCSV() {
+            if (!currentTransactions || currentTransactions.length === 0) {
+                showToast('Нет данных для экспорта', 'warning');
+                return;
+            }
+            
+            const typeLabels = {
+                salary: 'Зарплата', advance: 'Аванс', bonus: 'Премия',
+                early_pay: 'Досрочная', year_bonus: 'Годовой бонус',
+                vacation: 'Отпускные', other: 'Другое',
+                expense: 'Расход', savings: 'Копилка'
+            };
+            
+            // CSV header
+            let csv = '\uFEFF'; // BOM for Excel
+            csv += 'Дата,Тип,Категория,Описание,Сумма (BYN),Оригинал,Валюта\n';
+            
+            // CSV rows
+            currentTransactions.forEach(t => {
+                const date = new Date(t.date).toLocaleDateString('ru-RU');
+                const type = typeLabels[t.type] || t.type;
+                const category = t.category_name || '';
+                const description = (t.description || '').replace(/"/g, '""');
+                const amount = t.amount.toFixed(2);
+                const original = t.original_amount ? t.original_amount.toFixed(2) : amount;
+                const currency = t.currency || 'BYN';
+                
+                csv += `"${date}","${type}","${category}","${description}",${amount},${original},"${currency}"\n`;
+            });
+            
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const month = document.getElementById('filterMonth').value;
+            a.download = `transactions_${month}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showToast('Экспорт завершён', 'success');
+        }
+        
+        async function importCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const text = await file.text();
+            const lines = text.split('\n').filter(line => line.trim());
+            
+            if (lines.length < 2) {
+                showToast('Файл пустой или содержит только заголовок', 'error');
+                return;
+            }
+            
+            // Пропускаем заголовок
+            const dataLines = lines.slice(1);
+            let imported = 0;
+            let errors = 0;
+            
+            // Определяем формат по заголовку
+            const header = lines[0].toLowerCase();
+            const isOurFormat = header.includes('тип') && header.includes('категория');
+            
+            for (const line of dataLines) {
+                try {
+                    // Парсим CSV строку (учитываем кавычки)
+                    const cols = line.match(/("([^"]|"")*"|[^,]*)/g) || [];
+                    const cleanCols = cols.map(c => c.replace(/^"|"$/g, '').replace(/""/g, '"').trim());
+                    
+                    if (cleanCols.length < 4) continue;
+                    
+                    let data;
+                    if (isOurFormat) {
+                        // Наш формат: Дата, Тип, Категория, Описание, Сумма (BYN), Оригинал, Валюта
+                        const [dateStr, typeStr, category, description, amountByn, original, currency] = cleanCols;
+                        
+                        // Парсим дату
+                        const dateParts = dateStr.split('.');
+                        const date = dateParts.length === 3 
+                            ? `${dateParts[2]}-${dateParts[1].padStart(2,'0')}-${dateParts[0].padStart(2,'0')}`
+                            : dateStr;
+                        
+                        // Определяем тип
+                        const typeMap = {
+                            'зарплата': 'salary', 'аванс': 'advance', 'премия': 'bonus',
+                            'досрочная': 'early_pay', 'годовой бонус': 'year_bonus',
+                            'отпускные': 'vacation', 'другое': 'other',
+                            'расход': 'expense', 'копилка': 'savings'
+                        };
+                        const type = typeMap[typeStr.toLowerCase()] || 'other';
+                        
+                        data = {
+                            date: date,
+                            amount: parseFloat(original || amountByn) || 0,
+                            currency: currency || 'BYN',
+                            type: type,
+                            description: description || ''
+                        };
+                    } else {
+                        // Простой формат: Дата, Сумма, Описание, Тип (опционально)
+                        const [dateStr, amount, description, typeStr] = cleanCols;
+                        
+                        // Парсим дату
+                        const dateParts = dateStr.split('.');
+                        const date = dateParts.length === 3 
+                            ? `${dateParts[2]}-${dateParts[1].padStart(2,'0')}-${dateParts[0].padStart(2,'0')}`
+                            : dateStr;
+                        
+                        const amountNum = parseFloat(amount.replace(/[^\d.-]/g, '')) || 0;
+                        const type = amountNum < 0 ? 'expense' : 'other';
+                        
+                        data = {
+                            date: date,
+                            amount: Math.abs(amountNum),
+                            currency: 'BYN',
+                            type: typeStr || type,
+                            description: description || ''
+                        };
+                    }
+                    
+                    if (data.amount > 0) {
+                        await api('transactions', 'POST', data);
+                        imported++;
+                    }
+                } catch (e) {
+                    errors++;
+                    console.error('Import error:', e);
+                }
+            }
+            
+            // Reset input
+            event.target.value = '';
+            
+            if (imported > 0) {
+                showToast(`Импортировано ${imported} операций` + (errors > 0 ? `, ошибок: ${errors}` : ''), 'success');
+                loadTransactions();
+                loadDashboard();
+            } else {
+                showToast('Не удалось импортировать операции', 'error');
+            }
+        }
+
+        function renderTransactions(transactions, containerId) {
+            const container = document.getElementById(containerId);
+            
+            if (!transactions || transactions.length === 0) {
+                container.innerHTML = '<p class="empty-state">Нет операций</p>';
+                return;
+            }
+
+            const typeLabels = {
+                salary: '💰 Зарплата', advance: '💵 Аванс', bonus: '🎁 Премия',
+                early_pay: '⚡ Досрочная', year_bonus: '🎄 Годовой бонус',
+                vacation: '🌴 Отпускные', other: '📦 Другое',
+                expense: '🛒 Расход', savings: '🏦 Копилка'
+            };
+
+            // Текущий месяц для проверки возможности удаления
+            const currentMonth = new Date().toISOString().slice(0, 7);
+
+            container.innerHTML = transactions.map(t => {
+                const isExpense = t.type === 'expense' || t.type === 'savings';
+                const sign = isExpense ? '-' : '+';
+                const amountClass = isExpense ? 'negative' : 'positive';
+                const categoryText = t.category_name ? ` • ${t.category_name}` : '';
+                
+                // Проверяем, можно ли удалить (только текущий месяц)
+                const txMonth = t.date ? t.date.slice(0, 7) : '';
+                const canDelete = txMonth === currentMonth;
+                const deleteBtn = canDelete 
+                    ? `<button class="btn-delete-tx" onclick="deleteTransaction(${t.id}, event)" title="Удалить">🗑️</button>` 
+                    : '';
+                
+                return `
+                    <div class="transaction-item" data-id="${t.id}">
+                        <div class="tx-icon">${typeLabels[t.type]?.split(' ')[0] || '💳'}</div>
+                        <div class="tx-info">
+                            <span class="tx-type">${typeLabels[t.type] || t.type}${categoryText}</span>
+                            <span class="tx-date">${formatDate(t.date)}${t.description ? ' • ' + t.description : ''}</span>
+                        </div>
+                        <span class="tx-amount ${amountClass}">${sign}${formatMoney(t.amount)}</span>
+                        ${deleteBtn}
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Удаление транзакции
+        async function deleteTransaction(id, event) {
+            event.stopPropagation();
+            
+            if (!confirm('Удалить эту операцию? Баланс будет скорректирован.')) {
+                return;
+            }
+            
+            try {
+                const result = await api(`transactions?id=${id}`, 'DELETE');
+                
+                if (result.deleted) {
+                    showToast('Операция удалена', 'success');
+                    // Обновим данные
+                    loadDashboard();
+                    loadTransactions();
+                } else {
+                    showToast('Не удалось удалить операцию', 'error');
+                }
+            } catch (e) {
+                console.error('Delete error:', e);
+                showToast('Ошибка при удалении: ' + e.message, 'error');
+            }
+        }
+
+        // ==================== Analytics ====================
+        async function loadAnalytics() {
+            try {
+                document.getElementById('analyticsMonth').textContent = getMonthName(currentAnalyticsMonth);
+                
+                const data = await api('analytics?month=' + currentAnalyticsMonth);
+                
+                document.getElementById('analyticsIncome').textContent = formatMoney(data.total_income);
+                document.getElementById('analyticsExpenses').textContent = formatMoney(data.total_expenses);
+                document.getElementById('analyticsBalance').textContent = formatMoney(data.total_income - data.total_expenses);
+
+                renderCategoryChart(data.by_category);
+                renderTrendChart(data.monthly_trend);
+            } catch (e) {
+                console.error('Analytics error:', e);
+            }
+        }
+
+        function changeAnalyticsMonth(delta) {
+            const d = new Date(currentAnalyticsMonth + '-01');
+            d.setMonth(d.getMonth() + delta);
+            currentAnalyticsMonth = d.toISOString().slice(0, 7);
+            loadAnalytics();
+        }
+
+        function renderCategoryChart(categories) {
+            const ctx = document.getElementById('categoryChart');
+            const legend = document.getElementById('categoryLegend');
+            
+            if (!categories || categories.length === 0) {
+                ctx.style.display = 'none';
+                legend.innerHTML = '<p class="empty-state">Нет данных о расходах</p>';
+                return;
+            }
+            ctx.style.display = 'block';
+
+            if (categoryChart) categoryChart.destroy();
+            
+            categoryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: categories.map(c => c.category_name),
+                    datasets: [{
+                        data: categories.map(c => c.amount),
+                        backgroundColor: categories.map(c => c.color),
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    cutout: '60%'
+                }
+            });
+
+            legend.innerHTML = categories.map(c => `
+                <div class="legend-item">
+                    <span class="legend-color" style="background: ${c.color}"></span>
+                    <span class="legend-name">${c.icon} ${c.category_name}</span>
+                    <span class="legend-value">${formatMoney(c.amount)} (${c.percent.toFixed(1)}%)</span>
+                </div>
+            `).join('');
+        }
+
+        function renderTrendChart(trend) {
+            const ctx = document.getElementById('trendChart');
+            
+            if (!trend || trend.length === 0) {
+                ctx.style.display = 'none';
+                return;
+            }
+            ctx.style.display = 'block';
+
+            if (trendChart) trendChart.destroy();
+
+            const labels = trend.map(t => getMonthName(t.month).split(' ')[0]).reverse();
+            const income = trend.map(t => t.total_income).reverse();
+            const expenses = trend.map(t => t.expenses).reverse();
+
+            trendChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Доходы', data: income, backgroundColor: '#4CAF50' },
+                        { label: 'Расходы', data: expenses, backgroundColor: '#F44336' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'bottom' } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+
+        // ==================== Plans ====================
+        async function loadPlans() {
+            try {
+                // Goal
+                const dashboard = await api('dashboard');
+                const goalContent = document.getElementById('planGoalContent');
+                
+                if (dashboard.goal) {
+                    const g = dashboard.goal;
+                    goalContent.innerHTML = `
+                        <div class="goal-detail">
+                            <div class="goal-main">
+                                <span class="goal-title">${g.name}</span>
+                                <div class="goal-progress-wrap">
+                                    <div class="goal-progress-bar">
+                                        <div class="goal-progress-fill" style="width: ${Math.min(dashboard.progress_percent, 100)}%"></div>
+                                    </div>
+                                </div>
+                                <div class="goal-numbers">
+                                    <span>${g.current_amount.toFixed(0)} $ из ${g.target_amount.toFixed(0)} $</span>
+                                    <span>${dashboard.progress_percent.toFixed(1)}%</span>
+                                </div>
+                            </div>
+                            <div class="goal-meta">
+                                <div class="meta-item">
+                                    <span class="meta-value">${dashboard.days_remaining}</span>
+                                    <span class="meta-label">дней осталось</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-value">${dashboard.monthly_target.toFixed(0)} $</span>
+                                    <span class="meta-label">нужно в месяц</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    goalContent.innerHTML = `
+                        <div class="empty-goal">
+                            <p>Цель не установлена</p>
+                            <button class="btn btn-primary" onclick="openGoalModal()">Установить цель</button>
+                        </div>
+                    `;
+                }
+
+                // Budget
+                const budget = await api('budget/monthly');
+                document.getElementById('budgetIncome').textContent = formatMoney(budget.total_income);
+                document.getElementById('budgetPayments').textContent = '-' + formatMoney(budget.total_payments);
+                document.getElementById('budgetSavings').textContent = formatMoney(budget.total_savings);
+                document.getElementById('budgetExpenses').textContent = '-' + formatMoney(budget.total_expenses);
+                document.getElementById('budgetRemaining').textContent = formatMoney(budget.remaining);
+
+                // Recurring payments with status
+                const reminders = await api('payments/reminders');
+                renderRecurringPaymentsWithStatus(reminders);
+
+            } catch (e) {
+                console.error('Plans error:', e);
+            }
+        }
+
+        function renderRecurringPaymentsWithStatus(reminders) {
+            const container = document.getElementById('recurringPayments');
+            
+            if (!reminders || reminders.length === 0) {
+                container.innerHTML = '<p class="empty-state">Нет плановых платежей</p>';
+                return;
+            }
+
+            container.innerHTML = reminders.map(r => {
+                const p = r.payment;
+                let statusClass = '';
+                let statusBadge = '';
+                
+                if (r.is_next_month) {
+                    statusClass = 'next-month';
+                    statusBadge = `<span class="status-badge next-month">${getMonthName(r.month)}</span>`;
+                } else if (r.is_paid) {
+                    statusClass = 'paid';
+                    statusBadge = '<span class="status-badge paid">✓ Оплачено</span>';
+                } else if (r.is_overdue) {
+                    statusClass = 'overdue';
+                    statusBadge = '<span class="status-badge overdue">⚠️ Просрочен</span>';
+                } else if (r.days_until <= 3 && !r.is_next_month) {
+                    statusClass = 'soon';
+                    statusBadge = `<span class="status-badge soon">Через ${r.days_until} дн.</span>`;
+                }
+
+                // Не показываем кнопку оплатить для платежей следующего месяца
+                const actionBtn = (r.is_paid || r.is_next_month) ? '' : `
+                    <button class="btn-small ${r.is_overdue ? 'btn-success' : ''}" 
+                            onclick="markPaymentPaidFromDashboard(${p.id}, ${p.amount}, ${p.is_variable}, '${p.name}')">
+                        ✓ Оплатить
+                    </button>
+                `;
+
+                const monthInfo = r.is_next_month ? `${getMonthName(r.month)}, ` : '';
+
+                return `
+                    <div class="payment-item ${statusClass}">
+                        <div class="payment-info">
+                            <span class="payment-name">${p.name} ${statusBadge}</span>
+                            <span class="payment-date">${monthInfo}${p.day_of_month} числа • ${p.category === 'essential' ? 'Обязательный' : 'Опциональный'}</span>
+                        </div>
+                        <div class="payment-actions">
+                            <span class="payment-amount">${p.is_variable ? '~' : ''}${formatMoney(p.amount)}</span>
+                            ${actionBtn}
+                            <button class="btn-icon delete" onclick="deletePayment(${p.id})">🗑</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ==================== Quick Actions ====================
+        function quickAddIncome() {
+            // Переключиться на вкладку операций и настроить форму для дохода
+            switchTab('operations');
+            document.getElementById('txType').value = 'salary';
+            onTxTypeChange();
+            // Прокрутить к форме
+            document.getElementById('transactionForm').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function quickAddExpense() {
+            // Переключиться на вкладку операций и настроить форму для расхода
+            switchTab('operations');
+            document.getElementById('txType').value = 'expense';
+            onTxTypeChange();
+            // Прокрутить к форме
+            document.getElementById('transactionForm').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function quickAddSavings() {
+            // Переключиться на вкладку операций и настроить форму для накоплений
+            switchTab('operations');
+            document.getElementById('txType').value = 'savings';
+            onTxTypeChange();
+            // Прокрутить к форме
+            document.getElementById('transactionForm').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // ==================== Categories ====================
+        async function loadCategories() {
+            try {
+                categories = await api('categories');
+                loadCategoriesSelect('txCategory');
+            } catch (e) {
+                console.error('Categories error:', e);
+            }
+        }
+
+        function loadCategoriesSelect(selectId) {
+            const select = document.getElementById(selectId);
+            select.innerHTML = '<option value="">Без категории</option>';
+            
+            // Вспомогательная функция для формирования текста с иконкой
+            const formatWithIcon = (icon, name) => icon ? `${icon} ${name}` : name;
+            
+            categories.forEach(cat => {
+                const group = document.createElement('optgroup');
+                group.label = formatWithIcon(cat.icon, cat.name);
+                
+                if (cat.subcategories && cat.subcategories.length > 0) {
+                    cat.subcategories.forEach(sub => {
+                        const opt = document.createElement('option');
+                        opt.value = sub.id;
+                        opt.textContent = formatWithIcon(sub.icon, sub.name);
+                        group.appendChild(opt);
+                    });
+                } else {
+                    const opt = document.createElement('option');
+                    opt.value = cat.id;
+                    opt.textContent = formatWithIcon(cat.icon, cat.name);
+                    group.appendChild(opt);
+                }
+                
+                select.appendChild(group);
+            });
+        }
+
+        function onTxTypeChange() {
+            const type = document.getElementById('txType').value;
+            const categoryGroup = document.getElementById('categoryGroup');
+            const recurringGroup = document.getElementById('recurringPaymentGroup');
+            
+            // Show/hide expense-specific fields
+            const isExpense = type === 'expense';
+            categoryGroup.style.display = isExpense ? 'block' : 'none';
+            recurringGroup.style.display = isExpense ? 'block' : 'none';
+            
+            // Load recurring payments when showing expense form
+            if (isExpense) {
+                loadRecurringPaymentsForSelect();
+            }
+            
+            // Reset recurring payment selection
+            document.getElementById('txRecurringPayment').value = '';
+            
+            // Set default currency
+            if (['salary', 'advance', 'bonus', 'early_pay'].includes(type)) {
+                document.getElementById('txCurrency').value = 'RUB';
+            } else {
+                document.getElementById('txCurrency').value = 'BYN';
+            }
+            updateConversionHint();
+        }
+
+        let recurringPayments = [];
+
+        async function loadRecurringPaymentsForSelect() {
+            try {
+                recurringPayments = await api('payments');
+                const select = document.getElementById('txRecurringPayment');
+                select.innerHTML = '<option value="">— Обычный расход —</option>';
+                
+                recurringPayments.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    // Показываем сумму в BYN для удобства сравнения
+                    opt.textContent = `${p.name} (${p.is_variable ? '~' : ''}${formatMoney(p.amount)})`;
+                    // Сохраняем оригинальную сумму и валюту для подстановки в форму
+                    const originalAmount = p.original_amount || p.amount;
+                    const originalCurrency = p.currency || 'BYN';
+                    opt.dataset.amount = originalAmount.toFixed(2);
+                    opt.dataset.currency = originalCurrency;
+                    opt.dataset.name = p.name;
+                    opt.dataset.isVariable = p.is_variable;
+                    opt.dataset.categoryId = p.category_id || '';
+                    select.appendChild(opt);
+                });
+            } catch (e) {
+                console.error('Failed to load recurring payments:', e);
+            }
+        }
+
+        function onRecurringPaymentSelect() {
+            const select = document.getElementById('txRecurringPayment');
+            const option = select.options[select.selectedIndex];
+            
+            if (option.value) {
+                // Fill in amount and description from recurring payment
+                const amount = parseFloat(option.dataset.amount);
+                const currency = option.dataset.currency || 'BYN';
+                const name = option.dataset.name;
+                const isVariable = option.dataset.isVariable === 'true';
+                const categoryId = option.dataset.categoryId;
+                
+                // Форматируем сумму с 2 знаками после запятой для валидации step="0.01"
+                document.getElementById('txAmount').value = amount.toFixed(2);
+                document.getElementById('txCurrency').value = currency;
+                document.getElementById('txDescription').value = name;
+                
+                // Устанавливаем категорию из обязательного платежа если она есть
+                if (categoryId) {
+                    const categorySelect = document.getElementById('txCategory');
+                    if (categorySelect) {
+                        categorySelect.value = categoryId;
+                    }
+                }
+                
+                // Если сумма переменная, разрешаем редактирование
+                if (isVariable) {
+                    document.getElementById('txAmount').focus();
+                }
+                
+                updateConversionHint();
+            }
+        }
+
+        // ==================== Currency ====================
+        async function loadCurrencyRates() {
+            try {
+                const rates = await api('rates');
+                currencyRates.RUB = parseFloat(rates.RUB) || 0.034;
+                currencyRates.EUR = parseFloat(rates.EUR) || 3.55;
+                currencyRates.USD = parseFloat(rates.USD) || 3.25;
+            } catch (e) {
+                console.error('Rates error:', e);
+            }
+        }
+
+        function updateConversionHint() {
+            const amount = parseFloat(document.getElementById('txAmount').value) || 0;
+            const currency = document.getElementById('txCurrency').value;
+            const hint = document.getElementById('conversionHint');
+            
+            if (currency !== 'BYN' && amount > 0) {
+                const byn = amount * currencyRates[currency];
+                hint.textContent = '≈ ' + formatMoney(byn);
+            } else {
+                hint.textContent = '';
+            }
+        }
+
+        async function updateRates() {
+            try {
+                await api('rates/update', 'POST');
+                await loadSettings();
+                showToast('Курсы обновлены', 'success');
+            } catch (e) {
+                showToast('Ошибка: ' + e.message, 'error');
+            }
+        }
+
+        // ==================== Income Recommendation ====================
+        let recommendedSavingsAmount = 0;
+        
+        async function showIncomeRecommendation() {
+            try {
+                const rec = await api('income-recommendation');
+                
+                // Баланс
+                document.getElementById('recBalance').textContent = formatMoney(rec.balance);
+                
+                // Заголовок с датой дохода
+                const headerEl = document.getElementById('recIncomeHeader');
+                if (headerEl) {
+                    headerEl.textContent = `До ${rec.next_income_type} ${rec.next_income_date} (${rec.days_until_income} дн.)`;
+                }
+                
+                // Список платежей до дохода
+                const unpaidList = document.getElementById('recUnpaidList');
+                if (rec.payments_list && rec.payments_list.length > 0) {
+                    unpaidList.innerHTML = rec.payments_list.map(p => `
+                        <div class="rec-payment ${p.is_next_month ? 'next-month' : ''}">
+                            <span>${p.name} <small>(${p.due_date})</small></span>
+                            <span>${formatMoney(p.amount)}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    unpaidList.innerHTML = '<p class="empty-state">Нет платежей до дохода</p>';
+                }
+                
+                // Новые поля API
+                document.getElementById('recTotalUnpaid').textContent = formatMoney(rec.total_payments);
+                document.getElementById('recMinLiving').textContent = formatMoney(rec.living_budget);
+                document.getElementById('recFreeFunds').textContent = formatMoney(rec.free_funds);
+                document.getElementById('recMessage').textContent = rec.message;
+                
+                // Кнопка добавления накоплений
+                const savingsBtn = document.getElementById('recAddSavingsBtn');
+                if (rec.suggested_savings > 0) {
+                    recommendedSavingsAmount = rec.suggested_savings;
+                    savingsBtn.style.display = 'inline-flex';
+                    savingsBtn.textContent = `Отложить ${formatMoney(rec.suggested_savings)} (${rec.savings_percent}%)`;
+                } else {
+                    savingsBtn.style.display = 'none';
+                }
+                
+                // Цвет свободных средств
+                const freeFundsEl = document.getElementById('recFreeFunds');
+                freeFundsEl.className = 'rec-value ' + (rec.free_funds < 0 ? 'negative' : 'positive');
+                
+                openModal('recommendationModal');
+            } catch (e) {
+                console.error('Recommendation error:', e);
+            }
+        }
+        
+        async function addRecommendedSavings() {
+            if (recommendedSavingsAmount <= 0) return;
+            
+            const data = {
+                date: new Date().toISOString().split('T')[0],
+                amount: recommendedSavingsAmount,
+                currency: 'BYN',
+                type: 'savings',
+                description: 'Рекомендуемое накопление'
+            };
+            
+            try {
+                await api('transactions', 'POST', data);
+                showToast('Накопление добавлено', 'success');
+                closeModal('recommendationModal');
+                loadDashboard();
+                loadTransactions();
+            } catch (e) {
+                showToast('Ошибка: ' + e.message, 'error');
+            }
+        }
+        
+        // Функция рендеринга блока рекомендаций (cashflow-логика)
+        function renderRecommendationsBlock(containerId, rec) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            // Статус: warning, success, info
+            const statusIcon = rec.status === 'warning' ? '⚠️' : (rec.status === 'success' ? '✅' : 'ℹ️');
+            const statusClass = rec.status === 'warning' ? 'negative' : (rec.status === 'success' ? 'positive' : 'neutral');
+            
+            let html = `
+                <div class="rec-block">
+                    <div class="rec-status ${statusClass}">
+                        <span class="rec-status-icon">${statusIcon}</span>
+                        <span class="rec-status-text">${rec.message}</span>
+                    </div>
+                    
+                    <div class="rec-header-info">
+                        До ${rec.next_income_type} ${rec.next_income_date} (${rec.days_until_income} дн.)
+                    </div>
+                    
+                    <div class="rec-overview">
+                        <div class="rec-overview-item">
+                            <span class="rec-overview-label">Баланс</span>
+                            <span class="rec-overview-value">${formatMoney(rec.balance)}</span>
+                        </div>
+                        <div class="rec-overview-item">
+                            <span class="rec-overview-label">На жизнь</span>
+                            <span class="rec-overview-value">−${formatMoney(rec.living_budget)}</span>
+                        </div>
+                        <div class="rec-overview-item">
+                            <span class="rec-overview-label">Платежи</span>
+                            <span class="rec-overview-value ${rec.total_payments > 0 ? 'negative' : ''}">−${formatMoney(rec.total_payments)}</span>
+                        </div>
+                        <div class="rec-overview-item ${rec.free_funds >= 0 ? 'result' : 'deficit'}">
+                            <span class="rec-overview-label">Свободно</span>
+                            <span class="rec-overview-value ${rec.free_funds >= 0 ? 'positive' : 'negative'}">${formatMoney(rec.free_funds)}</span>
+                        </div>
+                    </div>`;
+            
+            // Кнопка для накоплений если есть рекомендуемая сумма
+            if (rec.suggested_savings > 0) {
+                html += `
+                    <div class="rec-savings-suggestion">
+                        <span>Отложить ${rec.savings_percent}%:</span>
+                        <strong>${formatMoney(rec.suggested_savings)}</strong>
+                        <button class="btn btn-sm btn-success" onclick="addQuickSavings(${rec.suggested_savings})">Отложить</button>
+                    </div>`;
+            }
+            
+            // Список платежей до дохода
+            if (rec.payments_list && rec.payments_list.length > 0) {
+                html += `
+                    <div class="rec-payments-summary">
+                        <span class="rec-payments-count">
+                            ${rec.payments_list.length} платежей до ${rec.next_income_type}
+                        </span>
+                        <button class="btn-text" onclick="showIncomeRecommendation()">Подробнее</button>
+                    </div>`;
+            }
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+        
+        // Загрузка рекомендаций для дашборда
+        async function loadDashboardRecommendations() {
+            try {
+                const rec = await api('income-recommendation');
+                renderRecommendationsBlock('dashboardRecContent', rec);
+            } catch (e) {
+                console.error('Dashboard recommendations error:', e);
+                document.getElementById('dashboardRecContent').innerHTML = 
+                    '<p class="empty-state">Не удалось загрузить рекомендации</p>';
+            }
+        }
+        
+        // Быстрое добавление накоплений
+        async function addQuickSavings(amount) {
+            const data = {
+                date: new Date().toISOString().split('T')[0],
+                amount: amount,
+                currency: 'BYN',
+                type: 'savings',
+                description: 'Рекомендуемое накопление'
+            };
+            
+            try {
+                await api('transactions', 'POST', data);
+                showToast('Накопление добавлено', 'success');
+                loadDashboard();
+                loadDashboardRecommendations();
+                loadTransactions();
+            } catch (e) {
+                showToast('Ошибка: ' + e.message, 'error');
+            }
+        }
+        
+        // ==================== Forms ====================
+        const incomeTypes = ['salary', 'advance', 'bonus', 'early_pay'];
+        
+        document.getElementById('transactionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const type = document.getElementById('txType').value;
+            const categoryId = document.getElementById('txCategory').value;
+            const recurringPaymentId = document.getElementById('txRecurringPayment').value;
+            
+            const data = {
+                date: document.getElementById('txDate').value,
+                amount: parseFloat(document.getElementById('txAmount').value),
+                currency: document.getElementById('txCurrency').value,
+                type: type,
+                category_id: categoryId ? parseInt(categoryId) : null,
+                recurring_payment_id: recurringPaymentId ? parseInt(recurringPaymentId) : null,
+                description: document.getElementById('txDescription').value
+            };
+
+            try {
+                await api('transactions', 'POST', data);
+                showToast('Операция добавлена', 'success');
+                
+                e.target.reset();
+                document.getElementById('txDate').value = new Date().toISOString().split('T')[0];
+                onTxTypeChange();
+                loadDashboard();
+                loadTransactions();
+                
+                // Показать рекомендации при добавлении дохода
+                if (incomeTypes.includes(type)) {
+                    showIncomeRecommendation();
+                }
+            } catch (err) {
+                // Error already shown by api()
+            }
+        });
+
+        document.getElementById('quickAddForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const type = document.getElementById('quickType').value;
+            const categoryId = document.getElementById('quickCategory').value;
+            
+            const data = {
+                date: new Date().toISOString().split('T')[0],
+                amount: parseFloat(document.getElementById('quickAmount').value),
+                currency: document.getElementById('quickCurrency').value,
+                type: type,
+                category_id: categoryId ? parseInt(categoryId) : null,
+                description: document.getElementById('quickDescription').value
+            };
+
+            try {
+                await api('transactions', 'POST', data);
+                showToast('Операция добавлена', 'success');
+                closeModal('quickAddModal');
+                e.target.reset();
+                loadDashboard();
+                loadTransactions(); // Обновляем список операций
+            } catch (e) {
+                // Error already shown by api()
+            }
+        });
+
+        document.getElementById('syncForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const balance = parseFloat(document.getElementById('syncBalance').value);
+            
+            try {
+                const result = await api('balance/sync', 'POST', { actual_balance: balance });
+                closeModal('syncModal');
+                
+                if (result.difference !== 0) {
+                    showToast(`Баланс скорректирован. Разница: ${formatMoney(result.difference)}`, 'info');
+                } else {
+                    showToast('Баланс актуален', 'success');
+                }
+                
+                loadDashboard();
+            } catch (e) {
+                showToast('Ошибка: ' + e.message, 'error');
+            }
+        });
+
+        document.getElementById('goalForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const data = {
+                name: document.getElementById('goalNameInput').value,
+                target_amount: parseFloat(document.getElementById('goalAmount').value),
+                target_date: document.getElementById('goalDate').value
+            };
+
+            try {
+                await api('goals', 'POST', data);
+                closeModal('goalModal');
+                loadDashboard();
+                loadPlans();
+            } catch (e) {
+                showToast('Ошибка: ' + e.message, 'error');
+            }
+        });
+
+        document.getElementById('paymentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const categoryId = document.getElementById('payCategoryId').value;
+            const data = {
+                name: document.getElementById('payName').value,
+                amount: parseFloat(document.getElementById('payAmount').value),
+                currency: document.getElementById('payCurrency').value,
+                day_of_month: parseInt(document.getElementById('payDay').value),
+                category: document.getElementById('payCategory').value,
+                category_id: categoryId ? parseInt(categoryId) : null,
+                is_variable: document.getElementById('payVariable').checked
+            };
+
+            try {
+                await api('payments', 'POST', data);
+                closeModal('paymentModal');
+                e.target.reset();
+                loadPlans();
+                loadDashboard();
+                showToast('Платёж добавлен', 'success');
+            } catch (e) {
+                showToast('Ошибка: ' + e.message, 'error');
+            }
+        });
+
+        // ==================== Modals ====================
+        let activeModalId = null;
+        
+        function openModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.add('show');
+            activeModalId = id;
+            
+            // Focus first input
+            const firstInput = modal.querySelector('input, select, textarea');
+            if (firstInput) {
+                setTimeout(() => firstInput.focus(), 100);
+            }
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('show');
+            if (activeModalId === id) {
+                activeModalId = null;
+            }
+        }
+        
+        // Close modal on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && activeModalId) {
+                closeModal(activeModalId);
+            }
+        });
+        
+        // Close modal on backdrop click
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    closeModal(modal.id);
+                }
+            });
+        });
+
+        function openSyncModal() {
+            openModal('syncModal');
+        }
+
+        function openGoalModal() {
+            document.getElementById('goalDate').value = new Date(Date.now() + 180*24*60*60*1000).toISOString().split('T')[0];
+            openModal('goalModal');
+        }
+
+        function openAddPaymentModal() {
+            // Загрузить категории в селект для платежа
+            loadCategoriesSelect('payCategoryId');
+            openModal('paymentModal');
+        }
+
+        // Close modal on overlay click
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal(modal.id);
+            });
+        });
+
+        // ==================== Delete Actions ====================
+        async function deletePayment(id) {
+            if (!confirm('Удалить плановый платёж?')) return;
+            
+            try {
+                await api('payments?id=' + id, 'DELETE');
+                loadPlans();
+                loadDashboard();
+            } catch (e) {
+                showToast('Ошибка: ' + e.message, 'error');
+            }
+        }
+
+        // ==================== Init ====================
+        function initFilters() {
+            const yearSelect = document.getElementById('filterYear');
+            const monthSelect = document.getElementById('filterMonth');
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth(); // 0-11
+            
+            // Заполняем список годов (последние 5 лет + опция "Все")
+            const allYearOpt = document.createElement('option');
+            allYearOpt.value = 'all';
+            allYearOpt.textContent = 'Все годы';
+            yearSelect.appendChild(allYearOpt);
+            
+            for (let y = currentYear; y >= currentYear - 4; y--) {
+                const opt = document.createElement('option');
+                opt.value = y;
+                opt.textContent = y + ' год';
+                if (y === currentYear) opt.selected = true;
+                yearSelect.appendChild(opt);
+            }
+            
+            // Заполняем список месяцев
+            populateMonthFilter(currentYear, currentMonth);
+        }
+        
+        function populateMonthFilter(selectedYear, selectMonth) {
+            const monthSelect = document.getElementById('filterMonth');
+            const yearSelect = document.getElementById('filterYear');
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth();
+            
+            monthSelect.innerHTML = '';
+            
+            // Если выбраны все годы
+            if (yearSelect.value === 'all') {
+                const allOpt = document.createElement('option');
+                allOpt.value = 'all';
+                allOpt.textContent = 'Все месяцы';
+                allOpt.selected = true;
+                monthSelect.appendChild(allOpt);
+                monthSelect.disabled = true;
+                return;
+            }
+            
+            monthSelect.disabled = false;
+            
+            // Опция "Все месяцы" для выбранного года
+            const allMonthOpt = document.createElement('option');
+            allMonthOpt.value = 'all';
+            allMonthOpt.textContent = 'Все месяцы';
+            monthSelect.appendChild(allMonthOpt);
+            
+            const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 
+                               'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+            
+            const year = parseInt(yearSelect.value);
+            
+            // Определяем доступные месяцы для выбранного года
+            const maxMonth = (year === currentYear) ? currentMonth : 11;
+            
+            for (let m = maxMonth; m >= 0; m--) {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = monthNames[m];
+                
+                // Выбираем текущий месяц по умолчанию
+                if (year === currentYear && m === currentMonth && selectMonth === undefined) {
+                    opt.selected = true;
+                } else if (selectMonth !== undefined && m === selectMonth) {
+                    opt.selected = true;
+                }
+                
+                monthSelect.appendChild(opt);
+            }
+        }
+        
+        function onYearChange() {
+            populateMonthFilter();
+            loadTransactions();
+        }
+
+        // ==================== Category Management ====================
+        
+        async function loadCategoriesForSettings() {
+            const showInactive = document.getElementById('showInactiveCategories')?.checked || false;
+            const url = showInactive ? 'categories?include_inactive=true' : 'categories';
+            const cats = await api(url);
+            
+            const container = document.getElementById('categoriesList');
+            if (!container) return;
+            
+            if (!cats || cats.length === 0) {
+                container.innerHTML = '<p class="empty-state">Нет категорий</p>';
+                return;
+            }
+            
+            container.innerHTML = cats.map(cat => `
+                <div class="category-item ${!cat.is_active ? 'inactive' : ''}" data-id="${cat.id}">
+                    <div class="category-main">
+                        <span class="category-icon" style="background-color: ${cat.color || '#6C5CE7'}">${cat.icon || '📦'}</span>
+                        <span class="category-name">${cat.name}</span>
+                        ${!cat.is_active ? '<span class="badge-deleted">удалена</span>' : ''}
+                    </div>
+                    <div class="category-actions">
+                        <button class="btn-icon" onclick="editCategory(${cat.id})" title="Редактировать">✏️</button>
+                        ${cat.is_active 
+                            ? `<button class="btn-icon btn-danger" onclick="deleteCategory(${cat.id})" title="Удалить">🗑️</button>`
+                            : `<button class="btn-icon btn-success" onclick="restoreCategory(${cat.id})" title="Восстановить">♻️</button>`
+                        }
+                    </div>
+                    ${cat.subcategories && cat.subcategories.length > 0 ? `
+                        <div class="subcategories">
+                            ${cat.subcategories.map(sub => `
+                                <div class="category-item subcategory ${!sub.is_active ? 'inactive' : ''}">
+                                    <div class="category-main">
+                                        <span class="category-icon small">${sub.icon || '📁'}</span>
+                                        <span class="category-name">${sub.name}</span>
+                                        ${!sub.is_active ? '<span class="badge-deleted">удалена</span>' : ''}
+                                    </div>
+                                    <div class="category-actions">
+                                        <button class="btn-icon" onclick="editCategory(${sub.id})" title="Редактировать">✏️</button>
+                                        ${sub.is_active 
+                                            ? `<button class="btn-icon btn-danger" onclick="deleteCategory(${sub.id})" title="Удалить">🗑️</button>`
+                                            : `<button class="btn-icon btn-success" onclick="restoreCategory(${sub.id})" title="Восстановить">♻️</button>`
+                                        }
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+        
+        // ==================== Emoji Picker ====================
+        const categoryEmojis = [
+            // Еда
+            '🍔', '🍕', '🍜', '🍱', '🥗', '🍳', '☕', '🍺',
+            // Дом
+            '🏠', '🛋️', '🔧', '💡', '🚿', '🧹', '🪴', '🛏️',
+            // Транспорт
+            '🚗', '🚕', '🚌', '🚆', '✈️', '⛽', '🚲', '🛵',
+            // Связь
+            '📱', '💻', '📡', '📞', '🌐', '📧', '📺', '🎧',
+            // Здоровье
+            '💊', '🏥', '🩺', '💪', '🧘', '🏃', '🦷', '👓',
+            // Развлечения
+            '🎮', '🎬', '🎵', '📚', '🎨', '🎭', '🎪', '🎯',
+            // Одежда
+            '👕', '👗', '👟', '👜', '🧥', '👒', '💍', '⌚',
+            // Подарки
+            '🎁', '💐', '🎂', '🎈', '💝', '🧸', '🎊', '🎉',
+            // Финансы
+            '💰', '💳', '🏦', '💵', '📊', '📈', '🧾', '💎',
+            // Образование
+            '📖', '✏️', '🎓', '📝', '🔬', '🧪', '📐', '🗂️',
+            // Работа
+            '💼', '🖥️', '📋', '📁', '🗃️', '📌', '✉️', '🖨️',
+            // Другое
+            '⭐', '❤️', '🔥', '✨', '🌟', '🎯', '📦', '🔔'
+        ];
+        
+        let emojiPickerVisible = false;
+        
+        function initEmojiPicker() {
+            const grid = document.getElementById('emojiGrid');
+            if (!grid) return;
+            
+            grid.innerHTML = '';
+            categoryEmojis.forEach(emoji => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.textContent = emoji;
+                btn.onclick = () => selectEmoji(emoji);
+                grid.appendChild(btn);
+            });
+        }
+        
+        function toggleEmojiPicker() {
+            const picker = document.getElementById('emojiPicker');
+            emojiPickerVisible = !emojiPickerVisible;
+            
+            if (emojiPickerVisible) {
+                picker.classList.add('active');
+                // Закрыть при клике вне
+                setTimeout(() => {
+                    document.addEventListener('click', closeEmojiPickerOnClickOutside);
+                }, 0);
+            } else {
+                picker.classList.remove('active');
+                document.removeEventListener('click', closeEmojiPickerOnClickOutside);
+            }
+        }
+        
+        function closeEmojiPickerOnClickOutside(e) {
+            const wrapper = document.querySelector('.emoji-picker-wrapper');
+            if (wrapper && !wrapper.contains(e.target)) {
+                const picker = document.getElementById('emojiPicker');
+                picker.classList.remove('active');
+                emojiPickerVisible = false;
+                document.removeEventListener('click', closeEmojiPickerOnClickOutside);
+            }
+        }
+        
+        function selectEmoji(emoji) {
+            document.getElementById('categoryIcon').value = emoji;
+            document.getElementById('categoryIconPreview').textContent = emoji;
+            
+            // Закрыть пикер
+            const picker = document.getElementById('emojiPicker');
+            picker.classList.remove('active');
+            emojiPickerVisible = false;
+            document.removeEventListener('click', closeEmojiPickerOnClickOutside);
+        }
+        
+        function openCategoryModal(id = null) {
+            document.getElementById('categoryId').value = id || '';
+            document.getElementById('categoryName').value = '';
+            document.getElementById('categoryIcon').value = '';
+            document.getElementById('categoryIconPreview').textContent = '📦';
+            document.getElementById('categoryColor').value = '#6C5CE7';
+            document.getElementById('categoryModalTitle').textContent = id ? 'Редактировать категорию' : 'Добавить категорию';
+            
+            // Initialize emoji picker
+            initEmojiPicker();
+            
+            // Fill parent category select
+            const parentSelect = document.getElementById('categoryParent');
+            parentSelect.innerHTML = '<option value="">-- Корневая категория --</option>';
+            categories.filter(c => !c.parent_id).forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat.id;
+                opt.textContent = `${cat.icon || ''} ${cat.name}`;
+                parentSelect.appendChild(opt);
+            });
+            
+            openModal('categoryModal');
+        }
+        
+        async function editCategory(id) {
+            // Find category in loaded list
+            let cat = categories.find(c => c.id === id);
+            if (!cat) {
+                // Check subcategories
+                for (const parent of categories) {
+                    if (parent.subcategories) {
+                        cat = parent.subcategories.find(s => s.id === id);
+                        if (cat) break;
+                    }
+                }
+            }
+            
+            if (!cat) {
+                showToast('Категория не найдена', 'error');
+                return;
+            }
+            
+            document.getElementById('categoryId').value = cat.id;
+            document.getElementById('categoryName').value = cat.name;
+            document.getElementById('categoryIcon').value = cat.icon || '';
+            document.getElementById('categoryIconPreview').textContent = cat.icon || '📦';
+            document.getElementById('categoryColor').value = cat.color || '#6C5CE7';
+            document.getElementById('categoryModalTitle').textContent = 'Редактировать категорию';
+            
+            // Initialize emoji picker
+            initEmojiPicker();
+            
+            // Fill parent category select
+            const parentSelect = document.getElementById('categoryParent');
+            parentSelect.innerHTML = '<option value="">-- Корневая категория --</option>';
+            categories.filter(c => !c.parent_id && c.id !== id).forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = `${c.icon || ''} ${c.name}`;
+                if (cat.parent_id === c.id) opt.selected = true;
+                parentSelect.appendChild(opt);
+            });
+            
+            openModal('categoryModal');
+        }
+        
+        async function saveCategory(e) {
+            e.preventDefault();
+            
+            const id = document.getElementById('categoryId').value;
+            const name = document.getElementById('categoryName').value;
+            const parentId = document.getElementById('categoryParent').value || null;
+            const icon = document.getElementById('categoryIcon').value;
+            const color = document.getElementById('categoryColor').value;
+            
+            const data = { name, icon, color };
+            if (parentId) data.parent_id = parseInt(parentId);
+            
+            let result;
+            if (id) {
+                data.id = parseInt(id);
+                result = await api('categories/update', 'POST', data);
+            } else {
+                result = await api('categories', 'POST', data);
+            }
+            
+            if (result) {
+                showToast(id ? 'Категория обновлена' : 'Категория добавлена', 'success');
+                closeModal('categoryModal');
+                await loadCategories();
+                loadCategoriesForSettings();
+            }
+        }
+        
+        async function deleteCategory(id) {
+            if (!confirm('Удалить категорию? Она будет скрыта из списка, но данные сохранятся.')) return;
+            
+            const result = await api('categories/delete', 'POST', { id });
+            if (result) {
+                showToast('Категория удалена', 'success');
+                await loadCategories();
+                loadCategoriesForSettings();
+            }
+        }
+        
+        async function restoreCategory(id) {
+            const result = await api('categories/restore', 'POST', { id });
+            if (result) {
+                showToast('Категория восстановлена', 'success');
+                await loadCategories();
+                loadCategoriesForSettings();
+            }
+        }
+        
+        async function loadSettingsData() {
+            const settings = await api('settings');
+            if (settings) {
+                document.getElementById('settGrossSalary2').value = settings.gross_salary || '';
+                document.getElementById('settAdvance2').value = settings.expected_advance || '';
+                document.getElementById('settAdvanceDay').value = settings.advance_day || '30';
+                document.getElementById('settSalaryDay').value = settings.salary_day || '15';
+                document.getElementById('settSavingsPercent').value = settings.savings_percent || '20';
+                document.getElementById('settMinLiving').value = settings.min_living_budget || '1500';
+                
+                document.getElementById('rateRub').textContent = parseFloat(settings.rub_rate || 0.034).toFixed(4);
+                document.getElementById('rateEur').textContent = parseFloat(settings.eur_rate || 3.55).toFixed(2);
+                document.getElementById('rateUsd').textContent = parseFloat(settings.usd_rate || 3.25).toFixed(2);
+                
+                const updated = settings.rates_updated;
+                document.getElementById('ratesUpdated').textContent = updated ? `Последнее обновление: ${updated}` : 'Последнее обновление: -';
+            }
+            
+            loadCategoriesForSettings();
+        }
+        
+        async function saveSalarySettings(e) {
+            e.preventDefault();
+            
+            const settings = {
+                gross_salary: document.getElementById('settGrossSalary2').value,
+                expected_advance: document.getElementById('settAdvance2').value,
+                advance_day: document.getElementById('settAdvanceDay').value,
+                salary_day: document.getElementById('settSalaryDay').value,
+                savings_percent: document.getElementById('settSavingsPercent').value,
+                min_living_budget: document.getElementById('settMinLiving').value
+            };
+            
+            try {
+                await api('settings', 'POST', settings);
+                showToast('Настройки сохранены', 'success');
+                loadDashboard();
+            } catch (e) {
+                showToast('Ошибка сохранения: ' + e.message, 'error');
+            }
+        }
+
+        async function init() {
+            // Set today's date
+            document.getElementById('txDate').value = new Date().toISOString().split('T')[0];
+            
+            // Init filters
+            initFilters();
+            
+            // Connect WebSocket for live updates
+            connectWebSocket();
+            
+            // Load initial data
+            await Promise.all([
+                loadCurrencyRates(),
+                loadCategories()
+            ]);
+            
+            // Load dashboard and transactions
+            loadDashboard();
+            loadTransactions();
+        }
+
+        // Start app
+        init();
+    </script>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+</body>
+</html>

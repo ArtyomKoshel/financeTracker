@@ -1,0 +1,765 @@
+openapi: 3.0.3
+info:
+  title: Finance Tracker API
+  description: API для приложения учёта личных финансов
+  version: 1.0.0
+
+servers:
+  - url: /api
+    description: API base path
+
+tags:
+  - name: Auth
+    description: Аутентификация
+  - name: Bootstrap
+    description: Начальная загрузка данных
+  - name: Transactions
+    description: Транзакции
+  - name: Tags
+    description: Теги транзакций
+  - name: Templates
+    description: Шаблоны транзакций
+  - name: Payments
+    description: Плановые платежи
+  - name: Goals
+    description: Цели накопления
+  - name: Budgets
+    description: Бюджеты по категориям
+  - name: Categories
+    description: Категории расходов
+  - name: Accounts
+    description: Счета пользователя
+  - name: Analytics
+    description: Аналитика и прогнозы
+  - name: Settings
+    description: Настройки и курсы валют
+  - name: Debts
+    description: Долги
+  - name: Envelopes
+    description: Конверты
+  - name: Health
+    description: Финансовое здоровье
+  - name: Admin
+    description: Админ-панель (требуется is_admin)
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT токен из POST /api/auth/login
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+    Success:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+
+security:
+  - bearerAuth: []
+
+paths:
+  /ping:
+    get:
+      tags: [Health]
+      summary: Проверка доступности API
+      security: []
+      responses:
+        '200':
+          description: OK
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Вход
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Успешный вход, возвращает token
+        '401':
+          description: Неверные учётные данные
+
+  /bootstrap:
+    get:
+      tags: [Bootstrap]
+      summary: Агрегированные данные при старте
+      responses:
+        '200':
+          description: user, balance, categories, income_types, rates, reminders, payments
+
+  /transactions:
+    get:
+      tags: [Transactions]
+      summary: Список транзакций (пагинация)
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: per_page, in: query, schema: { type: integer, default: 50 } }
+        - { name: month, in: query, schema: { type: string, example: '2026-03' } }
+        - { name: year, in: query, schema: { type: string, example: '2026' } }
+        - { name: type, in: query, schema: { type: string, enum: [income, expense, savings] } }
+        - { name: search, in: query, schema: { type: string } }
+        - { name: source, in: query, schema: { type: string } }
+        - { name: tag, in: query, schema: { type: string } }
+      responses:
+        '200': { description: Пагинированный список с meta }
+    post:
+      tags: [Transactions]
+      summary: Создать транзакцию
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, amount, date]
+              properties:
+                type: { type: string, enum: [income, expense, savings, savings_withdrawal, transfer] }
+                amount: { type: number }
+                category_id: { type: integer }
+                date: { type: string, format: date }
+                description: { type: string }
+                account_id: { type: integer }
+      responses:
+        '200': { description: Создана }
+    delete:
+      tags: [Transactions]
+      summary: Удалить транзакцию (id в query)
+      parameters:
+        - { name: id, in: query, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: Удалена }
+
+  /transactions/month:
+    get:
+      tags: [Transactions]
+      summary: Транзакции за месяц
+      parameters:
+        - { name: month, in: query, required: true, schema: { type: string, example: '2026-03' } }
+      responses:
+        '200': { description: Список транзакций }
+
+  /transactions/export:
+    get:
+      tags: [Transactions]
+      summary: Экспорт транзакций в CSV (до 5000 строк)
+      parameters:
+        - { name: month,  in: query, schema: { type: string, example: '2026-03' }, description: 'Конкретный месяц Y-m' }
+        - { name: year,   in: query, schema: { type: string, example: '2026' },    description: 'Весь год' }
+        - { name: type,   in: query, schema: { type: string, enum: [income, expense, savings] } }
+        - { name: search, in: query, schema: { type: string } }
+        - { name: source, in: query, schema: { type: string } }
+        - { name: tag,    in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: CSV файл с BOM (Excel-совместимый)
+          content:
+            text/csv:
+              schema: { type: string }
+
+  /transactions/bulk-delete:
+    post:
+      tags: [Transactions]
+      summary: Массовое удаление транзакций
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids: { type: array, items: { type: integer } }
+      responses:
+        '200': { description: Удалены }
+
+  /transactions/bulk-update:
+    post:
+      tags: [Transactions]
+      summary: Массовое обновление транзакций
+      responses:
+        '200': { description: Обновлены }
+
+  /transactions/{id}/tags:
+    post:
+      tags: [Tags]
+      summary: Синхронизировать теги транзакции
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tags: { type: array, items: { type: string } }
+      responses:
+        '200': { description: Теги обновлены, возвращает массив Tag }
+
+  /tags:
+    get:
+      tags: [Tags]
+      summary: Список всех тегов пользователя
+      responses:
+        '200': { description: Массив тегов }
+    post:
+      tags: [Tags]
+      summary: Создать тег
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                color: { type: string, example: '#FF5733' }
+      responses:
+        '200': { description: Создан }
+
+  /tags/{id}:
+    delete:
+      tags: [Tags]
+      summary: Удалить тег
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: Удалён }
+
+  /transaction-templates:
+    get:
+      tags: [Templates]
+      summary: Список шаблонов транзакций
+      responses:
+        '200': { description: Массив шаблонов }
+    post:
+      tags: [Templates]
+      summary: Создать шаблон
+      responses:
+        '200': { description: Создан }
+    put:
+      tags: [Templates]
+      summary: Обновить шаблон
+      responses:
+        '200': { description: Обновлён }
+    delete:
+      tags: [Templates]
+      summary: Удалить шаблон
+      responses:
+        '200': { description: Удалён }
+
+  /payments:
+    get:
+      tags: [Payments]
+      summary: Список плановых платежей
+      responses:
+        '200': { description: Список платежей }
+    post:
+      tags: [Payments]
+      summary: Создать плановый платёж
+      responses:
+        '200': { description: Создан }
+    put:
+      tags: [Payments]
+      summary: Обновить плановый платёж
+      responses:
+        '200': { description: Обновлён }
+    delete:
+      tags: [Payments]
+      summary: Удалить плановый платёж
+      responses:
+        '200': { description: Удалён }
+
+  /payments/reminders:
+    get:
+      tags: [Payments]
+      summary: Ближайшие напоминания
+      responses:
+        '200': { description: Список платежей на ближайшие дни }
+
+  /payments/calendar:
+    get:
+      tags: [Payments]
+      summary: Календарь предстоящих платежей
+      parameters:
+        - { name: month, in: query, schema: { type: string } }
+      responses:
+        '200': { description: Платежи за месяц }
+
+  /goals:
+    get:
+      tags: [Goals]
+      summary: Список целей накопления
+      responses:
+        '200': { description: Массив целей }
+    post:
+      tags: [Goals]
+      summary: Создать цель
+      responses:
+        '200': { description: Создана }
+    put:
+      tags: [Goals]
+      summary: Обновить цель
+      responses:
+        '200': { description: Обновлена }
+    delete:
+      tags: [Goals]
+      summary: Удалить цель
+      responses:
+        '200': { description: Удалена }
+
+  /budgets:
+    get:
+      tags: [Budgets]
+      summary: Бюджеты по категориям за месяц
+      parameters:
+        - { name: month, in: query, required: true, schema: { type: string, example: '2026-03' } }
+      responses:
+        '200': { description: Массив бюджетов с лимитом и потраченным }
+    post:
+      tags: [Budgets]
+      summary: Создать / обновить лимит категории
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [category_id, month, amount]
+              properties:
+                category_id: { type: integer }
+                month: { type: string, example: '2026-03' }
+                amount: { type: number }
+      responses:
+        '200': { description: Сохранён }
+    delete:
+      tags: [Budgets]
+      summary: Удалить лимит
+      parameters:
+        - { name: category_id, in: query, required: true, schema: { type: integer } }
+        - { name: month, in: query, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Удалён }
+
+  /budgets/copy:
+    post:
+      tags: [Budgets]
+      summary: Скопировать лимиты текущего месяца в следующий
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [from_month]
+              properties:
+                from_month: { type: string, example: '2026-03' }
+      responses:
+        '200': { description: Скопировано, возвращает copied count }
+
+  /categories:
+    get:
+      tags: [Categories]
+      summary: Список категорий с подкатегориями
+      responses:
+        '200': { description: Массив CategoryWithSubs }
+    post:
+      tags: [Categories]
+      summary: Создать категорию
+      responses:
+        '200': { description: Создана }
+
+  /categories/update:
+    post:
+      tags: [Categories]
+      summary: Обновить категорию
+      responses:
+        '200': { description: Обновлена }
+
+  /categories/delete:
+    delete:
+      tags: [Categories]
+      summary: Удалить категорию
+      responses:
+        '200': { description: Удалена }
+
+  /balance:
+    get:
+      tags: [Accounts]
+      summary: Текущий баланс и список счетов
+      responses:
+        '200': { description: AccountItem[] + total_balance }
+    post:
+      tags: [Accounts]
+      summary: Установить начальный баланс
+      responses:
+        '200': { description: Установлен }
+
+  /balance/sync:
+    post:
+      tags: [Accounts]
+      summary: Сверить фактический баланс
+      responses:
+        '200': { description: Создана транзакция сверки }
+
+  /accounts:
+    get:
+      tags: [Accounts]
+      summary: Список счетов
+      responses:
+        '200': { description: Массив счетов }
+    post:
+      tags: [Accounts]
+      summary: Создать счёт
+      responses:
+        '200': { description: Создан }
+    put:
+      tags: [Accounts]
+      summary: Обновить счёт
+      responses:
+        '200': { description: Обновлён }
+    delete:
+      tags: [Accounts]
+      summary: Удалить счёт
+      responses:
+        '200': { description: Удалён }
+
+  /analytics:
+    get:
+      tags: [Analytics]
+      summary: Аналитика за месяц (расходы по категориям)
+      parameters:
+        - { name: month, in: query, schema: { type: string, example: '2026-03' } }
+      responses:
+        '200': { description: Расходы и доходы по категориям }
+
+  /analytics/by-category:
+    get:
+      tags: [Analytics]
+      summary: Расходы по категории за период
+      parameters:
+        - { name: category_id, in: query, required: true, schema: { type: integer } }
+        - { name: month, in: query, schema: { type: string } }
+      responses:
+        '200': { description: Транзакции по категории }
+
+  /analytics/year:
+    get:
+      tags: [Analytics]
+      summary: Годовая аналитика по месяцам
+      parameters:
+        - { name: year, in: query, schema: { type: integer } }
+      responses:
+        '200': { description: Помесячная статистика }
+
+  /analytics/compare:
+    get:
+      tags: [Analytics]
+      summary: Сравнение двух месяцев
+      parameters:
+        - { name: month1, in: query, required: true, schema: { type: string } }
+        - { name: month2, in: query, required: true, schema: { type: string } }
+      responses:
+        '200': { description: MonthComparison с income/expenses diff и CategoryComparison[] }
+
+  /analytics/velocity:
+    get:
+      tags: [Analytics]
+      summary: Скорость трат (к концу месяца)
+      responses:
+        '200': { description: Прогнозируемая сумма к концу месяца }
+
+  /analytics/top-growth:
+    get:
+      tags: [Analytics]
+      summary: Топ категорий с ростом/падением расходов
+      responses:
+        '200': { description: Массив CategoryGrowth }
+
+  /analytics/yoy:
+    get:
+      tags: [Analytics]
+      summary: Year-over-Year сравнение месяца
+      parameters:
+        - { name: month, in: query, schema: { type: string } }
+      responses:
+        '200': { description: Текущий месяц vs тот же месяц год назад }
+
+  /forecast:
+    get:
+      tags: [Analytics]
+      summary: Прогноз расходов на N месяцев
+      parameters:
+        - { name: months, in: query, schema: { type: integer, default: 3 } }
+      responses:
+        '200': { description: Прогноз по категориям }
+
+  /recommendations:
+    get:
+      tags: [Analytics]
+      summary: AI-рекомендации по финансам
+      responses:
+        '200': { description: Массив рекомендаций }
+
+  /health:
+    get:
+      tags: [Health]
+      summary: Финансовый скор здоровья
+      responses:
+        '200': { description: score, breakdown, recommendations }
+
+  /health/net-worth-history:
+    get:
+      tags: [Health]
+      summary: История чистой стоимости
+      responses:
+        '200': { description: Массив точек net worth по месяцам }
+
+  /debts:
+    get:
+      tags: [Debts]
+      summary: Список долгов
+      responses:
+        '200': { description: Массив долгов }
+    post:
+      tags: [Debts]
+      summary: Создать долг
+      responses:
+        '200': { description: Создан }
+    put:
+      tags: [Debts]
+      summary: Обновить долг
+      responses:
+        '200': { description: Обновлён }
+    delete:
+      tags: [Debts]
+      summary: Удалить долг
+      responses:
+        '200': { description: Удалён }
+
+  /envelopes:
+    get:
+      tags: [Envelopes]
+      summary: Список конвертов
+      responses:
+        '200': { description: Массив конвертов }
+    post:
+      tags: [Envelopes]
+      summary: Создать конверт
+      responses:
+        '200': { description: Создан }
+    put:
+      tags: [Envelopes]
+      summary: Обновить конверт
+      responses:
+        '200': { description: Обновлён }
+    delete:
+      tags: [Envelopes]
+      summary: Удалить конверт
+      responses:
+        '200': { description: Удалён }
+
+  /settings:
+    get:
+      tags: [Settings]
+      summary: Настройки пользователя
+      responses:
+        '200': { description: Settings object }
+    post:
+      tags: [Settings]
+      summary: Обновить настройки
+      responses:
+        '200': { description: Обновлены }
+
+  /rates:
+    get:
+      tags: [Settings]
+      summary: Текущие курсы валют
+      responses:
+        '200': { description: Карта currency → rate }
+
+  /admin/dashboard:
+    get:
+      tags: [Admin]
+      summary: Дашборд статистики
+      responses:
+        '200': { description: total_users, active_users, transactions, revenue }
+
+  /admin/clients:
+    get:
+      tags: [Admin]
+      summary: Список клиентов со статистикой
+      responses:
+        '200': { description: AdminClientWithStats[] }
+    post:
+      tags: [Admin]
+      summary: Создать клиента
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+                name: { type: string }
+      responses:
+        '200': { description: Создан }
+
+  /admin/clients/{id}:
+    get:
+      tags: [Admin]
+      summary: Получить клиента
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: AdminClient }
+    put:
+      tags: [Admin]
+      summary: Обновить клиента (в т.ч. experimental_features)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string }
+                name: { type: string }
+                is_active: { type: boolean }
+                experimental_features: { type: array, items: { type: string } }
+      responses:
+        '200': { description: Обновлён }
+
+  /admin/clients/{id}/impersonate:
+    post:
+      tags: [Admin]
+      summary: Войти как клиент (получить его JWT)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: token для входа как этот клиент }
+
+  /admin/activity-logs:
+    get:
+      tags: [Admin]
+      summary: Логи активности пользователей
+      parameters:
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: per_page, in: query, schema: { type: integer } }
+        - { name: date_from, in: query, schema: { type: string, format: date } }
+        - { name: date_to, in: query, schema: { type: string, format: date } }
+        - { name: action, in: query, schema: { type: string } }
+        - { name: search, in: query, schema: { type: string } }
+      responses:
+        '200': { description: Пагинированный список логов }
+
+  /admin/external-api-logs:
+    get:
+      tags: [Admin]
+      summary: Логи внешних API-запросов
+      parameters:
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: per_page, in: query, schema: { type: integer } }
+      responses:
+        '200': { description: Пагинированный список }
+
+  /admin/charts:
+    get:
+      tags: [Admin]
+      summary: Графики (регистрации, транзакции)
+      parameters:
+        - { name: months, in: query, schema: { type: integer, default: 6 } }
+      responses:
+        '200': { description: labels, users[], transactions[] }
+
+  /tax:
+    get:
+      tags: [Analytics]
+      summary: Налоговый помощник — расчёт УСН 6% и самозанятые 4% по доходам за период
+      parameters:
+        - { name: date_from, in: query, required: true, schema: { type: string, example: '2026-01' }, description: 'Начало периода (Y-m)' }
+        - { name: date_to,   in: query, required: true, schema: { type: string, example: '2026-03' }, description: 'Конец периода (Y-m)' }
+      responses:
+        '200':
+          description: Итоги по налогам
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  date_from:         { type: string }
+                  date_to:           { type: string }
+                  total_income:      { type: number }
+                  tax_usn:           { type: number, description: '6% от total_income' }
+                  tax_self_employed: { type: number, description: '4% от total_income' }
+                  rate_usn:          { type: number, example: 0.06 }
+                  rate_self_employed: { type: number, example: 0.04 }
+                  by_month:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        month:  { type: string }
+                        income: { type: number }
+                        count:  { type: integer }
+
+  /email-parse:
+    post:
+      tags: [Analytics]
+      summary: Парсинг текста письма банка через AI — извлечение транзакций
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, maxLength: 20000, description: 'Текст письма банка' }
+      responses:
+        '200':
+          description: Извлечённые транзакции
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count: { type: integer }
+                  transactions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:        { type: string, format: date }
+                        amount:      { type: number }
+                        currency:    { type: string, enum: [BYN, USD, EUR, RUB] }
+                        description: { type: string }
+                        type:        { type: string, enum: [income, expense] }
+        '503': { description: AI-провайдер не настроен }

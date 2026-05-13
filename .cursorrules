@@ -1,0 +1,435 @@
+# Finance Tracker — Cursor Rules
+# Laravel 11 · PHP 8.4 · TypeScript vanilla · PostgreSQL 16
+
+---
+
+## СТЕК
+
+| Слой | Технология |
+|------|-----------|
+| Backend | Laravel 11, PHP 8.4, JWT (firebase/php-jwt) |
+| Frontend | Vite 5, TypeScript vanilla (БЕЗ фреймворков — не React, не Vue), Chart.js |
+| БД | PostgreSQL 16 |
+| WebSocket | Laravel Reverb + Laravel Echo (Pusher.js) |
+| Инфра | Docker Compose: nginx, PHP-FPM, PostgreSQL, Reverb, Redis |
+| Тесты | PHPUnit 11 (BE), Vitest 1 (FE) |
+| Качество | PHPStan level 5, Laravel Pint (PSR-12), TypeScript strict |
+
+---
+
+## АРХИТЕКТУРА BACKEND
+
+```
+Request → FormRequest (валидация) → Controller (тонкий) → Service (логика)
+       → Repository/Model → DB → Resource (ответ)
+```
+
+### Controller — только HTTP
+```php
+class TransactionController extends ApiController
+{
+    public function __construct(
+        private readonly TransactionService $transactionService,
+    ) {}
+
+    public function store(StoreTransactionRequest $request): JsonResponse
+    {
+        $result = $this->transactionService->create(
+            auth()->user(),
+            $request->validated()
+        );
+        return $this->success($result);
+    }
+}
+```
+- Тонкий: только HTTP, делегирует в Service
+- Ответ через `$this->success([...])` или через Resource
+- Валидация ТОЛЬКО через FormRequest — не в методе контроллера
+
+### Service — вся бизнес-логика
+```php
+class TransactionService
+{
+    public function create(User $user, array $data): array
+    {
+        return DB::transaction(function () use ($user, $data) {
+            $transaction = Transaction::create([...$data, 'client_id' => $user->id]);
+            $this->accountService->updateBalance($data['account_id'], $data['amount']);
+            event(new DataUpdated('transactions'));
+            return $transaction->toArray();
+        });
+    }
+}
+```
+- ВСЯ бизнес-логика здесь
+- Использовать `DB::transaction()` для атомарных операций
+- Триггерить события после изменений: `event(new DataUpdated('entity_name'))`
+- Инжектировать зависимости через конструктор (readonly)
+
+### Repository — только сложные запросы
+```php
+// Только если нужна подмена источника данных (интерфейс + реализация)
+interface TransactionRepositoryInterface
+{
+    public function getMonthlyStats(int $clientId, string $month): array;
+}
+```
+
+### Model — Eloquent + глобальный scope
+```php
+class Transaction extends Model
+{
+    protected static function booted(): void
+    {
+        static::addGlobalScope('client', function (Builder $builder) {
+            $clientId = app('client_id') ?? auth()->id();
+            if ($clientId) {
+                $builder->where('client_id', $clientId);
+            }
+        });
+    }
+}
+```
+- ОБЯЗАТЕЛЬНЫЙ глобальный scope по `client_id` на каждой модели
+- Связи, атрибуты, касты — здесь
+
+### FormRequest — валидация
+```php
+class StoreTransactionRequest extends FormRequest
+{
+    public function rules(): array
+    {
+        return [
+            'amount'      => ['required', 'numeric', 'gt:0'],
+            'type'        => ['required', Rule::enum(TransactionType::class)],
+            'category_id' => ['nullable', 'integer', 'exists:categories,id'],
+        ];
+    }
+}
+```
+
+---
+
+## АРХИТЕКТУРА FRONTEND
+
+```
+Page (оркестрация) → View (рендер) → Component (UI) → Service (API) → api/client.ts
+```
+
+### Page — оркестрация
+```typescript
+// web/src/pages/notes.ts
+export class NotesPage {
+    private view = new NotesView();
+    private service = new NotesService();
+
+    async init() {
+        this.view.showSkeletons();
+        const notes = await this.service.getAll();
+        this.view.render(notes);
+        this.view.onDelete = (id) => this.handleDelete(id);
+    }
+
+    private async handleDelete(id: number) {
+        this.view.optimisticRemove(id);          // оптимистичное обновление
+        try {
+            await this.service.delete(id);
+        } catch {
+            this.view.rollback();                 // откат при ошибке
+        }
+    }
+}
+```
+- Загрузка данных, callbacks, модалки, бизнес-логика UI
+- НИКАКИХ прямых API-вызовов — только через Service
+
+### View — ТОЛЬКО рендер
+```typescript
+// web/src/views/NotesView.ts
+export class NotesView {
+    render(notes: Note[]): void { /* DOM manipulation only */ }
+    showSkeletons(): void { /* placeholder UI */ }
+    optimisticRemove(id: number): void { /* instant DOM update */ }
+    rollback(): void { /* restore state */ }
+    // onDelete — callback, устанавливается из Page
+    onDelete?: (id: number) => void;
+}
+```
+- ТОЛЬКО рендер в DOM: `render*()`, `show*Skeletons()`, `update*()`
+- НЕ делает API-вызовов — только callbacks наружу
+
+### Service — обёртка над API
+```typescript
+// web/src/services/notes.service.ts
+export class NotesService {
+    async getAll(): Promise<Note[]> {
+        const res = await apiClient.get<Note[]>('/api/notes');
+        return res.data;
+    }
+    async delete(id: number): Promise<void> {
+        await apiClient.delete(`/api/notes/${id}`);
+    }
+}
+```
+
+### Store — глобальное состояние
+```typescript
+import { store } from '@/store';
+
+// Чтение
+const cats = store.get('categories');
+// Запись
+store.set('balance', newBalance);
+// Подписка
+store.subscribe('categories', () => this.view.renderCategories(store.get('categories')));
+```
+
+---
+
+## СОГЛАШЕНИЯ ИМЕНОВАНИЯ
+
+### Backend (PHP)
+| Тип | Пример | Паттерн |
+|-----|--------|---------|
+| Controller | `TransactionController`, `NoteController` | PascalCase + Controller |
+| Service | `TransactionService`, `NoteService` | PascalCase + Service |
+| Repository | `TransactionRepository` + `TransactionRepositoryInterface` | PascalCase + Repository |
+| Resource | `TransactionResource`, `NoteResource` | PascalCase + Resource |
+| Model | `Transaction`, `Note`, `Category` | PascalCase |
+| FormRequest | `StoreNoteRequest`, `UpdateLabelRequest` | Store/Update + Entity + Request |
+| Enum | `TransactionType`, `ExperimentalFeature` | PascalCase |
+| Event | `DataUpdated` | PascalCase |
+| Middleware | `JwtAuth`, `ExperimentalFeature` | PascalCase |
+
+### Frontend (TypeScript)
+| Тип | Пример | Паттерн |
+|-----|--------|---------|
+| Page | `dashboard.ts`, `notes.ts` | camelCase |
+| View | `DashboardView.ts`, `NotesView.ts` | PascalCase + View |
+| Component | `transaction-form.ts`, `note-card.ts` | kebab-case |
+| Service | `dashboard.service.ts`, `notes.service.ts` | camelCase + .service |
+| Types | `Note`, `Transaction` в `types/index.ts` | PascalCase (interface) |
+| Import alias | `@/store`, `@/api/client` | `@/` → `src/` |
+
+---
+
+## КЛЮЧЕВЫЕ ПАТТЕРНЫ
+
+### Формат ответа API (ВСЕГДА)
+```json
+{ "success": true, "data": { ... } }
+{ "success": false, "error": "Сообщение об ошибке" }
+```
+```php
+// В контроллере
+return $this->success(['id' => $note->id, 'title' => $note->title]);
+return $this->error('Note not found', 404);
+```
+
+### Изоляция данных (client_id)
+```php
+// ПРАВИЛЬНО — глобальный scope применяется автоматически
+$notes = Note::where('status', 'active')->get();
+
+// ЗАПРЕЩЕНО — никогда не запрашивать без scope
+$notes = Note::withoutGlobalScope('client')->get(); // ← НЕЛЬЗЯ без причины
+
+// client_id при создании
+Note::create([...$data, 'client_id' => auth()->id()]);
+// НЕ хардкодить: 'client_id' => 1  ← ЗАПРЕЩЕНО
+```
+
+### Модульная система (feature flags)
+```php
+// Маршрут с проверкой фичи
+Route::middleware(['jwt.auth', 'experimental:notes'])->group(function () {
+    Route::apiResource('notes', NoteController::class);
+});
+
+// Добавить новую фичу в класс
+class ExperimentalFeature
+{
+    public const BANK_RECEIPT_IMPORT = 'bank_receipt_import';
+    public const NOTES               = 'notes';    // новый модуль
+    public const CALENDAR            = 'calendar'; // новый модуль
+}
+```
+```typescript
+// Фронтенд — условный рендер
+import { isEnabled } from '@/utils/features';
+
+if (isEnabled('notes')) {
+    this.view.showNotesTab();
+}
+```
+
+### AI провайдер
+```php
+// Получить провайдер для пользователя
+$provider = AiProviderService::getProviderForUser(auth()->id());
+// Дефолт: 'groq' (llama-3.3-70b-versatile, бесплатный tier)
+// Резерв: 'anthropic' (claude-haiku)
+// Конфиг: config/ai.php
+// Per-user: user_experimental_features WHERE feature_code = 'ai_provider:anthropic'
+```
+
+### Broadcasting (real-time sync)
+```php
+// После изменений данных в Service
+event(new DataUpdated('notes'));       // синхронизирует все вкладки
+event(new DataUpdated('transactions'));
+event(new DataUpdated('balance'));
+```
+```typescript
+// Фронтенд слушает автоматически через Laravel Echo (app.ts)
+```
+
+### Оптимистичные обновления
+```typescript
+// 1. Мгновенное обновление UI
+this.view.optimisticAdd(tempNote);
+// 2. API запрос
+try {
+    const real = await this.service.create(data);
+    this.view.replaceTemp(tempNote.id, real);
+} catch (e) {
+    this.view.rollback();
+    showToast('Ошибка сохранения', 'error');
+}
+```
+
+### Bootstrap
+```typescript
+// GET /api/bootstrap при старте — me, balance, categories, income_types, rates, reminders
+// Lazy: recommendations и health — не блокируют
+// Данные попадают в Store автоматически через app.ts
+```
+
+### DB транзакции (атомарность)
+```php
+// Всегда использовать при нескольких связанных изменениях
+return DB::transaction(function () use ($data) {
+    $note = Note::create($data);
+    NoteLabel::sync($note->id, $data['labels'] ?? []);
+    event(new DataUpdated('notes'));
+    return $note;
+});
+```
+
+### Обработка ошибок BE
+```php
+// В Service — бросаем исключение
+throw new \InvalidArgumentException('Amount must be positive');
+
+// В Controller — ловим или используем глобальный Handler
+// api/app/Exceptions/Handler.php обрабатывает автоматически
+```
+
+### Обработка ошибок FE
+```typescript
+// В Page — try/catch с откатом и тостом
+try {
+    await this.service.save(data);
+} catch (error) {
+    this.view.rollback();
+    showToast(error instanceof Error ? error.message : 'Ошибка', 'error');
+}
+```
+
+---
+
+## СТРУКТУРА НОВЫХ МОДУЛЕЙ
+
+При создании нового модуля (Notes, Calendar и т.д.):
+
+### Backend checklist
+```
+api/app/Models/Note.php                         ← модель с client_id scope
+api/app/Http/Requests/StoreNoteRequest.php      ← валидация
+api/app/Http/Requests/UpdateNoteRequest.php
+api/app/Services/NoteService.php                ← бизнес-логика
+api/app/Http/Controllers/Api/NoteController.php ← тонкий контроллер
+api/app/Http/Resources/NoteResource.php         ← формат ответа (если нужен)
+database/migrations/xxxx_create_notes_table.php ← миграция
+api/app/Enums/ExperimentalFeature.php           ← добавить константу
+api/routes/api.php                              ← маршрут с experimental middleware
+```
+
+### Frontend checklist
+```
+web/src/pages/notes.ts          ← Page (оркестратор)
+web/src/views/NotesView.ts      ← View (только рендер)
+web/src/services/notes.service.ts ← Service (API обёртки)
+web/src/types/index.ts          ← добавить интерфейс Note
+web/src/utils/features.ts       ← isEnabled('notes') уже работает
+```
+
+---
+
+## КОМАНДЫ ДЛЯ ПРОВЕРКИ
+
+### Backend (запускать после каждого изменения PHP)
+```powershell
+docker compose -f docker/docker-compose.yml exec api php artisan test
+docker compose -f docker/docker-compose.yml exec api ./vendor/bin/phpstan analyse
+docker compose -f docker/docker-compose.yml exec api ./vendor/bin/pint
+docker compose -f docker/docker-compose.yml exec api php artisan migrate
+```
+
+### Frontend (запускать после изменений TS)
+```powershell
+docker compose -f docker/docker-compose.yml exec web npm run lint
+docker compose -f docker/docker-compose.yml exec web npm run build
+docker compose -f docker/docker-compose.yml exec web npm test
+```
+
+---
+
+## ВАЖНО — ЧЕГО НЕ ДЕЛАТЬ
+
+| Запрет | Почему |
+|--------|--------|
+| НЕ использовать React, Vue, Angular в `web/` | Только vanilla TypeScript |
+| НЕ делать API-вызовы из View-слоя | Только из Service-слоя |
+| НЕ писать бизнес-логику в Controller | Только в Service |
+| НЕ делать запросы к БД без client_id scope | Утечка данных между пользователями |
+| НЕ нарушать PHPStan level 5 | Строгая типизация PHP |
+| НЕ нарушать TypeScript strict mode | Строгая типизация FE |
+| НЕ хардкодить client_id | Брать из `auth()->user()->id` |
+| НЕ изменять баланс вне `AccountService` | Единая точка изменения баланса |
+| НЕ делать прямые DB-вызовы без `DB::transaction()` при нескольких изменениях | Атомарность |
+| НЕ добавлять новые experimental features без записи в Enum | Консистентность |
+| НЕ вызывать `withoutGlobalScope('client')` без явной причины | Безопасность данных |
+| **НЕ создавать документацию** | Не создавать README.md, CHANGELOG.md, doc-комментарии, JSDoc, PHPDoc в новых файлах — только если явно попросили |
+| **НЕ добавлять inline-комментарии** к очевидному коду | Код должен быть самодокументируемым; комментарии только для неочевидной логики |
+
+---
+
+## ВАЖНЫЕ ФАЙЛЫ
+
+### Backend
+| Файл | Назначение |
+|------|-----------|
+| `api/routes/api.php` | Все маршруты — здесь регистрируются новые |
+| `api/app/Services/TransactionService.php` | CRUD, баланс, budget warnings — референс |
+| `api/app/Models/Transaction.php` | Референс для global scope и связей |
+| `api/app/Enums/ExperimentalFeature.php` | Сюда добавлять новые feature flags |
+| `api/app/Http/Middleware/ExperimentalFeature.php` | Middleware для feature flags |
+| `api/config/ai.php` | Конфиг AI провайдеров |
+
+### Frontend
+| Файл | Назначение |
+|------|-----------|
+| `web/src/app.ts` | Главный контроллер: навигация, bootstrap, роутинг |
+| `web/src/api/client.ts` | HTTP-клиент с JWT — добавлять новые API-методы сюда |
+| `web/src/store/index.ts` | Глобальное состояние |
+| `web/src/types/index.ts` | Все TypeScript-интерфейсы — добавлять сюда |
+| `web/src/utils/features.ts` | `isEnabled(code)`, `getAiProvider()` |
+| `web/vite.config.ts` | Конфиг сборки: proxy `/api → API`, entry points |
+
+### Документация
+| Файл | Содержимое |
+|------|-----------|
+| `docs/CODEMAP.md` | Архитектура, структура кода, таблицы компонентов |
+| `docs/PLAN.md` | План развития: новые фичи, этапы |
+| `docs/CHANGELOG.md` | История изменений |
