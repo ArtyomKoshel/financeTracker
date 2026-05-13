@@ -26,7 +26,7 @@ class DashboardController extends Controller
         $currentMonth = now()->format('Y-m');
 
         $data = $this->dashboardService->getDashboardData($clientId, $currentMonth);
-        $data['cashflow'] = $this->budgetService->calculateCashflow($request);
+        $data['cashflow'] = $this->budgetService->calculateCashflow($clientId);
 
         return $this->success($data);
     }
