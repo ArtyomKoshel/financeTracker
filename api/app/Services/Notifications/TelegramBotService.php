@@ -234,10 +234,10 @@ class TelegramBotService
             }
         }
 
+        app()->instance('client_id', $user->id);
         $accountId = Account::defaultIdForClient($user->id);
 
         try {
-            app()->instance('client_id', $user->id);
 
             $this->transactionService->create([
                 'client_id' => $user->id,
