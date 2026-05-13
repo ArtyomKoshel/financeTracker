@@ -124,17 +124,13 @@ return [
         ],
 
         'telegram' => [
-            'driver' => 'daily',
-            'path' => storage_path('logs/telegram.log'),
+            'driver' => 'stderr',
             'level' => 'debug',
-            'days' => 7,
         ],
 
         'ai' => [
-            'driver' => 'daily',
-            'path' => storage_path('logs/ai.log'),
+            'driver' => 'stderr',
             'level' => 'debug',
-            'days' => 7,
         ],
 
         'calendar' => [
