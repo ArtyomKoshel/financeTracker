@@ -21,10 +21,10 @@ fi
 #    ${REVERB_SERVER_PORT} while preserving nginx $variables)
 # ----------------------------------------------------------------
 export PORT="${PORT:-8080}"
-export REVERB_SERVER_HOST="${REVERB_SERVER_HOST:-worker.railway.internal}"
-export REVERB_SERVER_PORT="${REVERB_SERVER_PORT:-8080}"
+export REVERB_HOST="${REVERB_HOST:-worker.railway.internal}"
+export REVERB_PORT="${REVERB_PORT:-8080}"
 
-envsubst '${PORT}${REVERB_SERVER_HOST}${REVERB_SERVER_PORT}' \
+envsubst '${PORT}${REVERB_HOST}${REVERB_PORT}' \
     < /etc/nginx/templates/default.conf.template \
     > /etc/nginx/nginx.conf
 

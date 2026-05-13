@@ -31,6 +31,17 @@ data/
 .DS_Store
 Thumbs.db
 
+# AI assistant / IDE config (not needed in repo)
+.claude/
+.cursorrules
+CLAUDE.md
+DESKTOP_LAYOUT.md
+
+# Unused configs
+soketi.json
+requirements.txt
+_archive_go/
+
 # Binary
 finance-tracker.exe
 

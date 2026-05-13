@@ -13,8 +13,10 @@ RUN apk add --no-cache \
     oniguruma-dev \
     && docker-php-ext-configure intl \
     && docker-php-ext-install -j$(nproc) pdo_pgsql mbstring zip intl opcache pcntl bcmath \
+    && apk add --no-cache --virtual .pecl-deps autoconf g++ make \
     && pecl install redis \
     && docker-php-ext-enable redis \
+    && apk del .pecl-deps \
     && rm -rf /tmp/pear /var/cache/apk/*
 
 RUN printf "opcache.enable=1\n\

@@ -55,7 +55,7 @@ http {
 
         # Reverb WebSocket — proxy to Worker service
         location /app/ {
-            proxy_pass http://${REVERB_SERVER_HOST}:${REVERB_SERVER_PORT};
+            proxy_pass http://${REVERB_HOST}:${REVERB_PORT};
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection "upgrade";
