@@ -21,6 +21,13 @@ if echo "$_NS" | grep -q ':'; then
 else
     NGINX_RESOLVER="$_NS"
 fi
+
+# Railway Redis service exposes REDISHOST/REDISPORT/REDISPASSWORD (no underscore).
+# Map them to Laravel's expected REDIS_HOST/REDIS_PORT/REDIS_PASSWORD when empty.
+[ -z "$REDIS_HOST" ] && [ -n "$REDISHOST" ]     && export REDIS_HOST="$REDISHOST"
+[ -z "$REDIS_PORT" ] && [ -n "$REDISPORT" ]     && export REDIS_PORT="$REDISPORT"
+[ -z "$REDIS_PASSWORD" ] && [ -n "$REDISPASSWORD" ] && export REDIS_PASSWORD="$REDISPASSWORD"
+
 export NGINX_RESOLVER
 
 envsubst '${PORT}${REVERB_HOST}${REVERB_PORT}${NGINX_RESOLVER}' \

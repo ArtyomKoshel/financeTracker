@@ -27,7 +27,8 @@ use App\Http\Controllers\Api\Transactions\TransactionController;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\Yaml\Yaml;
 
-Route::get('ping', fn () => response()->json(['ok' => true]));
+Route::get('ping', fn () => response()->json(['ok' => true]))
+    ->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
 
 // API Documentation (OpenAPI/Swagger)
 Route::get('openapi.json', function () {
