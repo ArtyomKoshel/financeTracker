@@ -4,6 +4,7 @@ namespace App\Services\Notifications;
 
 use App\Models\Account;
 use App\Models\IncomeType;
+use App\Models\Note;
 use App\Models\User;
 use App\Services\Accounts\AccountService;
 use App\Services\Transactions\CategorizationService;
@@ -206,13 +207,21 @@ class TelegramBotService
 
         $keywords = $this->buildIncomeKeywords($user->id);
         $parsed = $this->parser->parse($text, $keywords);
-        if ($parsed === null) {
+
+        if ($parsed !== null) {
+            $this->createTransaction($chatId, $user, $parsed);
+
+            return;
+        }
+
+        $actions = $this->extractActionsFromText($text, $keywords);
+        if (empty($actions)) {
             $this->sendMessage($chatId, "Не удалось распознать. Отправьте в формате:\nкофе 5.50 или 100 такси\n\n/help — справка");
 
             return;
         }
 
-        $this->createTransaction($chatId, $user, $parsed);
+        $this->dispatchActions($chatId, $user, $actions);
     }
 
     /**
@@ -298,18 +307,60 @@ class TelegramBotService
             }
 
             $keywords = $this->buildIncomeKeywords($user->id);
-            $extracted = $this->extractTransactionFromText($text, $keywords);
-            if (! $extracted) {
+            $actions = $this->extractActionsFromText($text, $keywords);
+            if (empty($actions)) {
                 $this->sendMessage($chatId, "📝 «{$text}»\nНе удалось извлечь транзакцию. Попробуйте текстом.");
 
                 return;
             }
 
             $this->sendMessage($chatId, "📝 «{$text}»");
-            $this->createTransaction($chatId, $user, $extracted);
+            $this->dispatchActions($chatId, $user, $actions);
         } catch (\Exception $e) {
             Log::channel('telegram')->error("voice error: {$e->getMessage()}");
             $this->sendMessage($chatId, 'Ошибка распознавания. Попробуйте текстом.');
+        }
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $actions
+     */
+    private function dispatchActions(int $chatId, User $user, array $actions): void
+    {
+        foreach ($actions as $action) {
+            $type = $action['action'] ?? 'transaction';
+            if ($type === 'note') {
+                $this->saveNote($chatId, $user, $action);
+            } else {
+                $this->createTransaction($chatId, $user, $action);
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $action
+     */
+    private function saveNote(int $chatId, User $user, array $action): void
+    {
+        try {
+            app()->instance('client_id', $user->id);
+            $title = trim($action['title'] ?? '');
+            $content = trim($action['content'] ?? $title);
+            if ($content === '') {
+                return;
+            }
+            if ($title === '') {
+                $title = mb_substr($content, 0, 60).(mb_strlen($content) > 60 ? '...' : '');
+            }
+            Note::create([
+                'client_id' => $user->id,
+                'title' => $title,
+                'content' => $content,
+            ]);
+            $this->sendMessage($chatId, "📌 Заметка сохранена: {$title}");
+        } catch (\Exception $e) {
+            Log::channel('telegram')->error('saveNote error: '.$e->getMessage());
+            $this->sendMessage($chatId, 'Ошибка при сохранении заметки.');
         }
     }
 
@@ -389,6 +440,100 @@ class TelegramBotService
         } finally {
             @unlink($tmpFile);
         }
+    }
+
+    /**
+     * @param  array<string, string>  $incomeKeywords  keyword → income type code
+     * @return list<array<string, mixed>>
+     */
+    private function extractActionsFromText(string $text, array $incomeKeywords = []): array
+    {
+        $apiKey = config('ai.providers.groq.api_key');
+        if (! $apiKey) {
+            return [];
+        }
+
+        $verifySsl = (bool) config('ai.providers.groq.verify_ssl', true);
+
+        $typesHint = 'expense';
+        if ($incomeKeywords) {
+            $codes = array_unique(array_values($incomeKeywords));
+            $typesHint = 'expense, '.implode(', ', $codes);
+        }
+
+        $prompt = 'Ты финансовый ассистент. Разбери сообщение и верни JSON-массив действий. '
+            .'Каждое действие одного из двух видов:\n'
+            .'1. Транзакция: {"action":"transaction","amount":число,"type":"тип","description":"кратко что"}\n'
+            .'2. Заметка: {"action":"note","title":"заголовок","content":"полный текст заметки"}\n'
+            ."Типы транзакций: {$typesHint}. По умолчанию expense.\n"
+            .'description — предмет/услуга без суммы и слов расход/доход.\n'
+            .'Если в сообщении есть конкретные суммы — это транзакции. Мысли, напоминания, планы без суммы — заметки.\n'
+            .'Если ничего не понял — верни []. Только JSON-массив, без пояснений.';
+
+        try {
+            Log::channel('ai')->info("Groq extractActions: input=\"{$text}\"");
+
+            $response = Http::when(! $verifySsl, fn ($http) => $http->withoutVerifying())
+                ->withToken($apiKey)
+                ->timeout(15)
+                ->post('https://api.groq.com/openai/v1/chat/completions', [
+                    'model' => 'llama-3.3-70b-versatile',
+                    'temperature' => 0,
+                    'max_tokens' => 400,
+                    'messages' => [
+                        ['role' => 'system', 'content' => $prompt],
+                        ['role' => 'user', 'content' => $text],
+                    ],
+                ]);
+
+            if (! $response->successful()) {
+                Log::channel('ai')->warning("Groq extractActions failed: {$response->status()} {$response->body()}");
+
+                return [];
+            }
+
+            $content = trim($response->json('choices.0.message.content') ?? '');
+            Log::channel('ai')->info("Groq extractActions raw: \"{$content}\"");
+
+            if (preg_match('/\[.*\]/s', $content, $m)) {
+                $content = $m[0];
+            }
+
+            $data = json_decode($content, true);
+            if (! is_array($data)) {
+                return [];
+            }
+
+            $results = [];
+            foreach ($data as $item) {
+                $action = $item['action'] ?? 'transaction';
+                if ($action === 'note') {
+                    $content2 = trim($item['content'] ?? $item['title'] ?? '');
+                    if ($content2 !== '') {
+                        $results[] = [
+                            'action' => 'note',
+                            'title' => trim($item['title'] ?? ''),
+                            'content' => $content2,
+                        ];
+                    }
+                } elseif (isset($item['amount']) && (float) $item['amount'] > 0) {
+                    $results[] = [
+                        'action' => 'transaction',
+                        'amount' => (float) $item['amount'],
+                        'type' => $item['type'] ?? 'expense',
+                        'description' => trim($item['description'] ?? ''),
+                    ];
+                }
+            }
+
+            Log::channel('ai')->info('Groq extractActions: '.count($results).' actions: '.json_encode($results, JSON_UNESCAPED_UNICODE));
+
+            return $results;
+        } catch (\Exception $e) {
+            Log::channel('ai')->warning("Groq extractActions error: {$e->getMessage()}");
+        }
+
+        return [];
     }
 
     /**

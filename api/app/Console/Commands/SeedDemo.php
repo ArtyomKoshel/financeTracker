@@ -3,6 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Console\Commands\Traits\RealisticDataTrait;
+use App\Enums\ExperimentalFeature;
+use App\Models\UserExperimentalFeature;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -37,6 +39,19 @@ class SeedDemo extends Command
         return 0;
     }
 
+    private function seedExperimentalFeaturesForUser(int $userId): void
+    {
+        UserExperimentalFeature::where('user_id', $userId)->delete();
+        foreach (ExperimentalFeature::all() as $code) {
+            UserExperimentalFeature::create([
+                'user_id' => $userId,
+                'feature_code' => $code,
+                'granted_by' => self::ADMIN_ID,
+                'granted_at' => now(),
+            ]);
+        }
+    }
+
     private function seedAdmin(): void
     {
         $this->deleteAllUserData(self::ADMIN_ID);
@@ -45,6 +60,7 @@ class SeedDemo extends Command
         $this->createUserRecord(self::ADMIN_ID, 'admin@local', 'admin123', 'Администратор', true);
         $this->seedCategoriesForUser(self::ADMIN_ID);
         $this->seedSettingsForUser(self::ADMIN_ID);
+        $this->seedExperimentalFeaturesForUser(self::ADMIN_ID);
 
         $this->info('  admin@local (id=1): created (admin, no transactions)');
     }
@@ -126,7 +142,14 @@ class SeedDemo extends Command
         $this->seedCategoryBudgetsForUser(self::DEMO_ID, $catMap);
         $this->seedTemplatesForUser(self::DEMO_ID, $catMap);
         $this->seedCategorizationRulesForUser(self::DEMO_ID);
+        $this->seedAdditionalAccountsForUser(self::DEMO_ID);
+        $this->seedPaymentHistoryForUser(self::DEMO_ID, $paymentIds);
+        $this->seedSettingsHistoryForUser(self::DEMO_ID);
+        $this->seedNotesForUser(self::DEMO_ID);
+        $this->seedCalendarEventsForUser(self::DEMO_ID);
+        $this->seedNetWorthSnapshotsForUser(self::DEMO_ID);
 
+        $this->seedExperimentalFeaturesForUser(self::DEMO_ID);
         mt_srand();
 
         $this->info("  demo@local (id=2): {$txCount} transactions, {$months} months, ~{$avgPerMonth} tx/month, balance: {$balance} BYN");
