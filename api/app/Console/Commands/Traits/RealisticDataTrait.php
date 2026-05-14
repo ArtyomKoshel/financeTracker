@@ -93,10 +93,10 @@ trait RealisticDataTrait
         ];
         $optionalTables = [
             'debts', 'envelopes', 'transaction_templates', 'categorization_rules',
-            'notes', 'note_label', 'note_labels', 'calendar_events',
+            'notes', 'note_label', 'note_labels', 'note_folders', 'calendar_events',
             'push_subscriptions', 'user_experimental_features',
             'bank_receipt_mappings', 'bank_receipt_income_mappings',
-            'net_worth_snapshots',
+            'net_worth_snapshots', 'settings_history',
         ];
 
         foreach ($tablesToClean as $table) {
@@ -496,24 +496,24 @@ trait RealisticDataTrait
             ->sum('amount'));
 
         $goals = [
-            ['name' => 'Отпуск', 'target' => 5000, 'months' => 6, 'currency' => 'BYN'],
-            ['name' => 'Подушка безопасности', 'target' => 15000, 'months' => 18, 'currency' => 'BYN'],
+            ['name' => 'Отпуск', 'target' => 5000, 'months' => 5, 'currency' => 'BYN', 'pct' => 0.40],
+            ['name' => 'Подушка безопасности', 'target' => 15000, 'months' => 14, 'currency' => 'BYN', 'pct' => 0.55],
+            ['name' => 'Покупка автомобиля', 'target' => 25000, 'months' => 30, 'currency' => 'BYN', 'pct' => 0.12],
+            ['name' => 'Первый взнос на квартиру', 'target' => 50000, 'months' => 48, 'currency' => 'BYN', 'pct' => 0.04],
         ];
 
-        $allocated = 0;
-        foreach ($goals as $i => $g) {
-            $goalSaved = $i === 0 ? min($savings * 0.4, $g['target']) : min($savings * 0.6, $g['target']);
-            $allocated += $goalSaved;
+        foreach ($goals as $g) {
+            $goalSaved = min($savings * $g['pct'], $g['target']);
             DB::table('goals')->insert([
-                'name' => $g['name'],
-                'target_amount' => $g['target'],
-                'currency' => $g['currency'],
-                'target_date' => now()->addMonths($g['months'])->format('Y-m-d'),
+                'name'           => $g['name'],
+                'target_amount'  => $g['target'],
+                'currency'       => $g['currency'],
+                'target_date'    => now()->addMonths($g['months'])->format('Y-m-d'),
                 'current_amount' => round($goalSaved, 2),
-                'is_active' => true,
-                'client_id' => $userId,
-                'created_at' => $now,
-                'updated_at' => $now,
+                'is_active'      => true,
+                'client_id'      => $userId,
+                'created_at'     => $now,
+                'updated_at'     => $now,
             ]);
         }
     }
@@ -524,19 +524,45 @@ trait RealisticDataTrait
             return;
         }
         $now = now()->format('Y-m-d H:i:s');
-        DB::table('debts')->insert([
-            'client_id' => $userId,
-            'name' => 'Рассрочка на ноутбук',
-            'total_amount' => 3600,
-            'paid_amount' => 2400,
-            'currency' => 'BYN',
-            'due_date' => now()->addMonths(4)->format('Y-m-d'),
-            'monthly_payment' => 300,
-            'type' => 'installment',
-            'is_active' => true,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        $debts = [
+            [
+                'name' => 'Рассрочка на ноутбук',
+                'total' => 3600, 'paid' => 2400,
+                'due_months' => 4, 'monthly' => 300,
+                'type' => 'installment',
+                'notes' => 'Lenovo IdeaPad, 12 платежей по 300 BYN',
+            ],
+            [
+                'name' => 'Автокредит',
+                'total' => 18000, 'paid' => 5400,
+                'due_months' => 18, 'monthly' => 700,
+                'type' => 'loan',
+                'notes' => 'Skoda Rapid, ставка 12% годовых',
+            ],
+            [
+                'name' => 'Долг другу Артёму',
+                'total' => 500, 'paid' => 0,
+                'due_months' => 2, 'monthly' => null,
+                'type' => 'personal',
+                'notes' => 'Занял на ремонт в марте',
+            ],
+        ];
+        foreach ($debts as $d) {
+            DB::table('debts')->insert([
+                'client_id'       => $userId,
+                'name'            => $d['name'],
+                'total_amount'    => $d['total'],
+                'paid_amount'     => $d['paid'],
+                'currency'        => 'BYN',
+                'due_date'        => now()->addMonths($d['due_months'])->format('Y-m-d'),
+                'monthly_payment' => $d['monthly'],
+                'type'            => $d['type'],
+                'is_active'       => true,
+                'notes'           => $d['notes'],
+                'created_at'      => $now,
+                'updated_at'      => $now,
+            ]);
+        }
     }
 
     protected function seedEnvelopesForUser(int $userId, array $catMap): void
@@ -661,6 +687,385 @@ trait RealisticDataTrait
                 'last_used_at' => $now,
                 'created_at' => $now,
                 'updated_at' => $now,
+            ]);
+        }
+    }
+
+    protected function seedAdditionalAccountsForUser(int $userId): array
+    {
+        $now = now()->format('Y-m-d H:i:s');
+        $main = DB::table('accounts')->where('client_id', $userId)->first();
+        $accounts = ['Основной счёт' => $main->id];
+
+        $savings = abs((float) DB::table('transactions')
+            ->where('client_id', $userId)
+            ->where('type', 'savings')
+            ->sum('amount'));
+
+        $newAccounts = [
+            ['name' => 'Сберегательный', 'balance' => round($savings * 0.85, 2), 'currency' => 'BYN', 'sort' => 1],
+            ['name' => 'Наличные',       'balance' => round(80 + mt_rand(0, 120), 2), 'currency' => 'BYN', 'sort' => 2],
+            ['name' => 'Валютный (USD)', 'balance' => round(250 + mt_rand(0, 100), 2), 'currency' => 'USD', 'sort' => 3],
+        ];
+
+        foreach ($newAccounts as $a) {
+            $id = DB::table('accounts')->insertGetId([
+                'name'       => $a['name'],
+                'sort_order' => $a['sort'],
+                'balance'    => $a['balance'],
+                'currency'   => $a['currency'],
+                'client_id'  => $userId,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            $accounts[$a['name']] = $id;
+        }
+
+        return $accounts;
+    }
+
+    protected function seedPaymentHistoryForUser(int $userId, array $paymentIds): void
+    {
+        $payments = DB::table('recurring_payments')
+            ->where('client_id', $userId)
+            ->where('is_income', false)
+            ->get();
+
+        foreach ($payments as $payment) {
+            for ($i = 11; $i >= 0; $i--) {
+                $date = now()->subMonths($i);
+                $month = $date->format('Y-m');
+                $day = min($payment->day_of_month, (int) $date->copy()->endOfMonth()->day);
+                $paidDate = $date->copy()->setDay($day)->format('Y-m-d');
+
+                DB::table('payment_history')->insertOrIgnore([
+                    'payment_id' => $payment->id,
+                    'paid_date'  => $paidDate,
+                    'amount'     => $payment->amount,
+                    'month'      => $month,
+                ]);
+            }
+        }
+    }
+
+    protected function seedSettingsHistoryForUser(int $userId): void
+    {
+        if (! Schema::hasTable('settings_history')) {
+            return;
+        }
+        $now = now()->format('Y-m-d H:i:s');
+        $entries = [
+            ['key' => 'gross_salary',    'value' => '2000', 'from' => now()->subYears(2)->format('Y-m-d'), 'to' => now()->subYear()->format('Y-m-d')],
+            ['key' => 'gross_salary',    'value' => '2500', 'from' => now()->subYear()->format('Y-m-d'),   'to' => null],
+            ['key' => 'expected_advance','value' => '1500', 'from' => now()->subYears(2)->format('Y-m-d'), 'to' => now()->subYear()->format('Y-m-d')],
+            ['key' => 'expected_advance','value' => '2500', 'from' => now()->subYear()->format('Y-m-d'),   'to' => null],
+            ['key' => 'usd_rate',        'value' => '3.10', 'from' => now()->subMonths(9)->format('Y-m-d'),'to' => now()->subMonths(5)->format('Y-m-d')],
+            ['key' => 'usd_rate',        'value' => '3.25', 'from' => now()->subMonths(5)->format('Y-m-d'),'to' => null],
+        ];
+        foreach ($entries as $e) {
+            DB::table('settings_history')->insert([
+                'client_id'  => $userId,
+                'key'        => $e['key'],
+                'value'      => $e['value'],
+                'valid_from' => $e['from'],
+                'valid_to'   => $e['to'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+    }
+
+    protected function seedNotesForUser(int $userId): void
+    {
+        if (! Schema::hasTable('notes')) {
+            return;
+        }
+        $now = now()->format('Y-m-d H:i:s');
+
+        $folders = [];
+        if (Schema::hasTable('note_folders')) {
+            foreach ([
+                ['name' => 'Финансовые планы', 'color' => '#6366f1', 'sort' => 0],
+                ['name' => 'Текущие расходы',  'color' => '#22C55E', 'sort' => 1],
+                ['name' => 'Жильё',            'color' => '#F59E0B', 'sort' => 2],
+            ] as $f) {
+                $fid = DB::table('note_folders')->insertGetId([
+                    'client_id'  => $userId,
+                    'name'       => $f['name'],
+                    'color'      => $f['color'],
+                    'sort_order' => $f['sort'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+                $folders[$f['name']] = $fid;
+            }
+        }
+
+        $labels = [];
+        if (Schema::hasTable('note_labels')) {
+            foreach ([
+                ['name' => 'важное',     'color' => '#EF4444'],
+                ['name' => 'планы',      'color' => '#3B82F6'],
+                ['name' => 'инвестиции', 'color' => '#F59E0B'],
+                ['name' => 'экономия',   'color' => '#22C55E'],
+            ] as $l) {
+                $lid = DB::table('note_labels')->insertGetId([
+                    'client_id'  => $userId,
+                    'name'       => $l['name'],
+                    'color'      => $l['color'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+                $labels[$l['name']] = $lid;
+            }
+        }
+
+        $notesData = [
+            [
+                'folder' => 'Финансовые планы',
+                'title'  => 'Бюджет на 2026 год',
+                'content' => "## Цели на год\n\n- Накопить на отпуск — 5 000 BYN\n- Погасить рассрочку на ноутбук\n- Пополнить подушку безопасности до 15 000 BYN\n- Начать откладывать на первоначальный взнос\n\n## Ежемесячный план\n\n**Доходы:** 5 000 BYN (зарплата + аванс)\n**Обязательные расходы:** ~2 100 BYN\n**Свободные средства:** ~1 800 BYN\n**Сбережения:** 400–500 BYN",
+                'summary' => 'Финансовый план на 2026: 4 цели, бюджет 5000 BYN, сбережения 400–500 BYN/мес.',
+                'pinned' => true, 'color' => '#6366f1',
+                'labels' => ['важное', 'планы'],
+                'actions' => ['Обновить бюджет в начале месяца', 'Проверить прогресс по целям'],
+                'days_ago' => 1,
+            ],
+            [
+                'folder' => 'Финансовые планы',
+                'title'  => 'Идеи для инвестиций',
+                'content' => "## Варианты инвестирования\n\n### Консервативные\n- **Депозит в банке** — ~12% годовых в BYN\n- **Облигации** — стабильный доход\n\n### Умеренные\n- **ETF на индекс S&P 500** — долгосрок\n- **Золото** — защита от инфляции\n\n## Что нужно изучить\n\n- Порог входа на фондовой бирже\n- Условия ИИС\n- Налогообложение доходов с инвестиций\n\n> Начать с небольшой суммы — 200–300 USD",
+                'summary' => 'Варианты инвестирования: депозиты, облигации, ETF. Начальная сумма — 200-300 USD.',
+                'pinned' => false, 'color' => '#F59E0B',
+                'labels' => ['инвестиции', 'планы'],
+                'actions' => ['Открыть брокерский счёт', 'Изучить ETF фонды'],
+                'days_ago' => 7,
+            ],
+            [
+                'folder' => 'Текущие расходы',
+                'title'  => 'Планирование отпуска в июле',
+                'content' => "## Турция, июль 2026\n\n**Бюджет:** 4 500 BYN на двоих\n\n| Статья | Сумма |\n|--------|-------|\n| Авиабилеты | 1 200 BYN |\n| Отель (10 ночей) | 1 800 BYN |\n| Питание и развлечения | 800 BYN |\n| Экскурсии | 400 BYN |\n| Прочее | 300 BYN |\n\n### Уже накоплено\n~2 800 BYN, нужно ещё ~1 700 BYN (3 месяца по 570)\n\n### Checklist\n- [x] Выбрать направление\n- [ ] Купить билеты\n- [ ] Забронировать отель\n- [ ] Оформить страховку",
+                'summary' => 'Отпуск в Турцию на июль: бюджет 4500 BYN, накоплено 2800 BYN, нужно ещё 1700.',
+                'pinned' => false, 'color' => '#22C55E',
+                'labels' => ['планы'],
+                'actions' => ['Купить авиабилеты до 1 мая', 'Забронировать отель', 'Оформить страховку'],
+                'days_ago' => 2,
+            ],
+            [
+                'folder' => 'Жильё',
+                'title'  => 'Ипотека vs аренда — сравнение',
+                'content' => "## Анализ вариантов\n\n### Текущая ситуация\nАренда: 800 BYN/мес + коммунальные ~100 BYN = **~900 BYN/мес**\n\n### Ипотека (квартира 120 000 USD)\n- Первоначальный взнос 20% = ~78 000 BYN\n- Платёж (20 лет, 12%): ~3 575 BYN/мес\n- Переплата: ~140 000 USD за 20 лет\n\n### Вывод\nАренда ещё 3–4 года, параллельно копить на взнос.\n**Целевой взнос:** 50 000 BYN за 4–5 лет.",
+                'summary' => 'Ипотека vs аренда: ипотека 3575 BYN/мес против аренды 900 BYN. Вывод — копить взнос 4-5 лет.',
+                'pinned' => false, 'color' => null,
+                'labels' => ['важное', 'планы'],
+                'actions' => ['Уточнить условия ипотеки в банке', 'Пересчитать ежемесячный взнос в цель'],
+                'days_ago' => 10,
+            ],
+            [
+                'folder' => null,
+                'title'  => 'Задачи на этот месяц',
+                'content' => "## Финансовые задачи\n\n- [ ] Оплатить страховку авто до 20 числа\n- [ ] Перевести 400 BYN на сберегательный счёт\n- [ ] Проверить баланс автокредита\n- [ ] Пересмотреть подписки — отключить лишние\n- [x] Оплатить аренду\n- [x] Пополнить мобильный\n\n## Напоминания\n- Техосмотр: следующий месяц\n- Страховка жизни: продление через 2 месяца",
+                'summary' => 'Финансовые задачи месяца: страховка авто, перевод сбережений, проверка кредита.',
+                'pinned' => true, 'color' => '#EF4444',
+                'labels' => ['важное'],
+                'actions' => ['Оплатить страховку авто', 'Перевести 400 BYN на сберегательный'],
+                'days_ago' => 0,
+            ],
+            [
+                'folder' => 'Текущие расходы',
+                'title'  => 'Сравнение тарифов мобильной связи',
+                'content' => "## Текущий тариф\nА1 — 25 BYN/мес, 20 ГБ\n\n| Оператор | Интернет | Цена |\n|----------|----------|------|\n| А1 Smart | 20 ГБ | 25 BYN |\n| МТС Super | 30 ГБ | 22 BYN |\n| Life Макс | 50 ГБ | 28 BYN |\n\n**Вывод:** МТС выгоднее на 3 BYN/мес, экономия 36 BYN/год.",
+                'summary' => 'МТС Super выгоднее текущего А1 на 3 BYN/мес. Потенциальная экономия 36 BYN/год.',
+                'pinned' => false, 'color' => null,
+                'labels' => ['экономия'],
+                'actions' => ['Перейти на тариф МТС Super'],
+                'days_ago' => 5,
+            ],
+            [
+                'folder' => 'Жильё',
+                'title'  => 'Список ремонтных работ',
+                'content' => "## Планируемые улучшения\n\n### Приоритет высокий\n- Замена смесителя на кухне — ~80 BYN\n- Ремонт межкомнатной двери — ~150 BYN\n\n### Приоритет средний\n- Покраска стен в спальне — ~120 BYN\n- Новые шторы в гостиную — ~200 BYN\n\n### На потом\n- Замена холодильника — ~700 BYN\n- Новый диван — ~1 200 BYN\n\n**Итого (срочное):** ~230 BYN\nСоздать конверт 'Ремонт' — 200 BYN/мес",
+                'summary' => 'Ремонтные работы: срочные 230 BYN, резерв 200 BYN/мес. На перспективу — холодильник и диван.',
+                'pinned' => false, 'color' => '#F59E0B',
+                'labels' => ['планы'],
+                'actions' => ['Создать конверт Ремонт', 'Купить смеситель'],
+                'days_ago' => 14,
+            ],
+        ];
+
+        $hasAnalysis = Schema::hasColumn('notes', 'action_items');
+        $hasPinned   = Schema::hasColumn('notes', 'is_pinned');
+        $hasFolder   = Schema::hasColumn('notes', 'folder_id');
+
+        foreach ($notesData as $sort => $n) {
+            $row = [
+                'client_id'  => $userId,
+                'title'      => $n['title'],
+                'content'    => $n['content'],
+                'summary'    => $n['summary'],
+                'sort_order' => $sort,
+                'color'      => $n['color'],
+                'created_at' => now()->subDays($n['days_ago'])->format('Y-m-d H:i:s'),
+                'updated_at' => now()->subDays(max(0, $n['days_ago'] - 1))->format('Y-m-d H:i:s'),
+            ];
+            if ($hasFolder) {
+                $row['folder_id'] = $n['folder'] ? ($folders[$n['folder']] ?? null) : null;
+            }
+            if ($hasPinned) {
+                $row['is_pinned'] = $n['pinned'];
+            }
+            if ($hasAnalysis) {
+                $row['action_items']     = json_encode($n['actions'], JSON_UNESCAPED_UNICODE);
+                $row['suggested_labels'] = null;
+                $row['analyzed_at']      = now()->subDays($n['days_ago'])->format('Y-m-d H:i:s');
+            }
+
+            $noteId = DB::table('notes')->insertGetId($row);
+
+            if (Schema::hasTable('note_label') && ! empty($n['labels'])) {
+                foreach ($n['labels'] as $labelName) {
+                    if (isset($labels[$labelName])) {
+                        DB::table('note_label')->insertOrIgnore([
+                            'note_id'  => $noteId,
+                            'label_id' => $labels[$labelName],
+                        ]);
+                    }
+                }
+            }
+        }
+    }
+
+    protected function seedCalendarEventsForUser(int $userId): void
+    {
+        if (! Schema::hasTable('calendar_events')) {
+            return;
+        }
+        $now = now()->format('Y-m-d H:i:s');
+        $today = now();
+
+        $dom = fn (int $day) => min($day, (int) $today->copy()->endOfMonth()->day);
+
+        $events = [
+            [
+                'title' => 'Зарплата',
+                'description' => 'Поступление зарплаты — 2 500 BYN',
+                'start' => $today->copy()->setDay($dom(10))->startOfDay()->format('Y-m-d H:i:s'),
+                'end' => null, 'all_day' => true,
+                'color' => '#22C55E',
+                'rrule' => 'FREQ=MONTHLY;BYMONTHDAY=10',
+            ],
+            [
+                'title' => 'Аванс',
+                'description' => 'Поступление аванса — 2 500 BYN',
+                'start' => $today->copy()->setDay($dom(25))->startOfDay()->format('Y-m-d H:i:s'),
+                'end' => null, 'all_day' => true,
+                'color' => '#22C55E',
+                'rrule' => 'FREQ=MONTHLY;BYMONTHDAY=25',
+            ],
+            [
+                'title' => 'Оплата аренды',
+                'description' => 'Ежемесячный платёж — 800 BYN',
+                'start' => $today->copy()->addMonth()->setDay(5)->startOfDay()->format('Y-m-d H:i:s'),
+                'end' => null, 'all_day' => true,
+                'color' => '#EF4444',
+                'rrule' => 'FREQ=MONTHLY;BYMONTHDAY=5',
+            ],
+            [
+                'title' => 'Платёж по рассрочке (последний)',
+                'description' => 'Ноутбук — 300 BYN, закрытие долга',
+                'start' => now()->addMonths(4)->setDay(15)->startOfDay()->format('Y-m-d H:i:s'),
+                'end' => null, 'all_day' => true,
+                'color' => '#F59E0B',
+                'rrule' => null,
+            ],
+            [
+                'title' => 'Стоматолог',
+                'description' => 'Плановый осмотр',
+                'start' => $today->copy()->addWeeks(2)->setHour(10)->setMinute(0)->setSecond(0)->format('Y-m-d H:i:s'),
+                'end'   => $today->copy()->addWeeks(2)->setHour(11)->setMinute(0)->setSecond(0)->format('Y-m-d H:i:s'),
+                'all_day' => false, 'color' => '#3B82F6', 'rrule' => null,
+            ],
+            [
+                'title' => 'Техосмотр автомобиля',
+                'description' => 'Обязательный ГТО',
+                'start' => $today->copy()->addWeeks(3)->setHour(9)->setMinute(0)->setSecond(0)->format('Y-m-d H:i:s'),
+                'end'   => $today->copy()->addWeeks(3)->setHour(10)->setMinute(30)->setSecond(0)->format('Y-m-d H:i:s'),
+                'all_day' => false, 'color' => '#8B5CF6', 'rrule' => null,
+            ],
+            [
+                'title' => 'Продление Netflix',
+                'description' => 'Автоматическое списание 15 BYN',
+                'start' => $today->copy()->addMonth()->setDay(3)->startOfDay()->format('Y-m-d H:i:s'),
+                'end' => null, 'all_day' => true,
+                'color' => '#EF4444',
+                'rrule' => 'FREQ=MONTHLY;BYMONTHDAY=3',
+            ],
+            [
+                'title' => 'Перевод на сберегательный',
+                'description' => 'Откладываем 400 BYN согласно плану',
+                'start' => $today->copy()->addDays(3)->setHour(12)->setMinute(0)->setSecond(0)->format('Y-m-d H:i:s'),
+                'end' => null, 'all_day' => false,
+                'color' => '#22C55E', 'rrule' => null,
+            ],
+            [
+                'title' => 'Планирование бюджета на следующий месяц',
+                'description' => 'Подвести итоги, поставить лимиты по категориям',
+                'start' => $today->copy()->endOfMonth()->subDays(2)->setHour(19)->setMinute(0)->setSecond(0)->format('Y-m-d H:i:s'),
+                'end'   => $today->copy()->endOfMonth()->subDays(2)->setHour(19)->setMinute(30)->setSecond(0)->format('Y-m-d H:i:s'),
+                'all_day' => false, 'color' => '#6366f1',
+                'rrule' => 'FREQ=MONTHLY;BYDAY=-3MO',
+            ],
+            [
+                'title' => 'Дедлайн — купить авиабилеты',
+                'description' => 'Цены на июль растут — купить до конца месяца',
+                'start' => $today->copy()->endOfMonth()->startOfDay()->format('Y-m-d H:i:s'),
+                'end' => null, 'all_day' => true,
+                'color' => '#F59E0B', 'rrule' => null,
+            ],
+        ];
+
+        foreach ($events as $e) {
+            DB::table('calendar_events')->insert([
+                'client_id'       => $userId,
+                'title'           => $e['title'],
+                'description'     => $e['description'] ?? null,
+                'start_at'        => $e['start'],
+                'end_at'          => $e['end'],
+                'is_all_day'      => $e['all_day'],
+                'color'           => $e['color'],
+                'recurrence_rule' => $e['rrule'],
+                'source'          => 'manual',
+                'created_at'      => $now,
+                'updated_at'      => $now,
+            ]);
+        }
+    }
+
+    protected function seedNetWorthSnapshotsForUser(int $userId): void
+    {
+        if (! Schema::hasTable('net_worth_snapshots')) {
+            return;
+        }
+        $now = now()->format('Y-m-d H:i:s');
+        $debtStart = 21600.0;
+
+        for ($i = 23; $i >= 0; $i--) {
+            $month    = now()->subMonths($i)->format('Y-m');
+            $p        = (23 - $i) / 23;
+            $balance  = round(2000 + $p * 14000 + mt_rand(-200, 200), 2);
+            $savings  = round($p * 12000 + mt_rand(-100, 100), 2);
+            $debt     = max(0, round($debtStart * (1 - $p * 0.85) + mt_rand(-50, 50), 2));
+            $netWorth = round($balance + $savings - $debt, 2);
+
+            DB::table('net_worth_snapshots')->insertOrIgnore([
+                'client_id'     => $userId,
+                'month'         => $month,
+                'total_balance' => $balance,
+                'total_savings' => $savings,
+                'total_debt'    => $debt,
+                'net_worth'     => $netWorth,
+                'created_at'    => $now,
+                'updated_at'    => $now,
             ]);
         }
     }
